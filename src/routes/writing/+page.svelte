@@ -14,7 +14,16 @@
 </svelte:head>
 
 <section class="mx-auto max-w-3xl px-6 pt-24 pb-16 sm:pt-32">
-	<SectionHeader label="WRITING" />
+	<div class="flex items-center justify-between">
+		<SectionHeader label="WRITING" />
+		<a
+			href="/admin"
+			class="mono text-[10px] uppercase tracking-[0.2em] transition-opacity hover:opacity-50"
+			style="color: var(--ink-faint);"
+		>
+			admin ↗
+		</a>
+	</div>
 
 	<h1
 		class="serif animate-in text-[64px] leading-[0.95] sm:text-[84px]"

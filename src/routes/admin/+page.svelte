@@ -33,10 +33,21 @@
 		window.location.reload();
 	}
 
+	// ── Post list ────────────────────────────────────────────
+	let posts = $state(data.posts ?? []);
+	// slug of the row currently awaiting delete confirmation
+	let deleteConfirmSlug = $state<string | null>(null);
+
+	async function deleteFromList(slug: string) {
+		await fetch(`/api/admin/posts/${slug}`, { method: 'DELETE' });
+		posts = posts.filter((p) => p.slug !== slug);
+		deleteConfirmSlug = null;
+	}
+
 	// ── Editor state ─────────────────────────────────────────
 	type View = 'list' | 'edit';
 	let view = $state<View>('list');
-	let editingSlug = $state<string | null>(null); // null = new post
+	let editingSlug = $state<string | null>(null);
 	let tab = $state<'write' | 'preview'>('write');
 	let saving = $state(false);
 	let saveMsg = $state('');
@@ -52,10 +63,14 @@
 	let content = $state('');
 	let published = $state(false);
 
-	// Post list (reactive copy so we can update after save/delete)
-	let posts = $state(data.posts ?? []);
+	// Textarea ref for cursor-aware image insertion
+	let textareaEl = $state<HTMLTextAreaElement | null>(null);
 
-	// Auto-derive slug from title unless user has manually edited it
+	// Image upload
+	let fileInputEl = $state<HTMLInputElement | null>(null);
+	let uploading = $state(false);
+
+	// Auto-derive slug from title
 	$effect(() => {
 		if (!slugCustomized) {
 			slugField = title
@@ -84,7 +99,6 @@
 	}
 
 	function openEdit(post: { slug: string; title: string; date: string; published: boolean }) {
-		// Fetch full post content from API — re-use the public route
 		fetch(`/api/admin/posts/${post.slug}`)
 			.then((r) => r.json())
 			.then((p) => {
@@ -113,19 +127,9 @@
 				.split(',')
 				.map((t) => t.trim())
 				.filter(Boolean);
-			const body = {
-				slug: slugField.trim(),
-				title: title.trim(),
-				description: description.trim(),
-				date,
-				tags,
-				content,
-				published
-			};
+			const body = { slug: slugField.trim(), title: title.trim(), description: description.trim(), date, tags, content, published };
 			const method = editingSlug ? 'PUT' : 'POST';
-			const url = editingSlug
-				? `/api/admin/posts/${editingSlug}`
-				: '/api/admin/posts';
+			const url = editingSlug ? `/api/admin/posts/${editingSlug}` : '/api/admin/posts';
 			const res = await fetch(url, {
 				method,
 				headers: { 'Content-Type': 'application/json' },
@@ -139,17 +143,13 @@
 			const { slug: newSlug } = (await res.json()) as { slug?: string; ok: boolean };
 			saveMsg = published ? 'Published.' : 'Saved as draft.';
 			editingSlug = newSlug ?? slugField.trim();
-
-			// Refresh list
-			posts = await fetch('/api/admin/posts')
-				.then((r) => r.json())
-				.catch(() => posts);
+			posts = await fetch('/api/admin/posts').then((r) => r.json()).catch(() => posts);
 		} finally {
 			saving = false;
 		}
 	}
 
-	async function remove() {
+	async function removeFromEditor() {
 		if (!editingSlug) return;
 		saving = true;
 		try {
@@ -159,6 +159,59 @@
 		} finally {
 			saving = false;
 			deleteConfirm = false;
+		}
+	}
+
+	// ── Image upload ─────────────────────────────────────────
+	function insertAtCursor(text: string) {
+		if (!textareaEl) {
+			content += '\n' + text;
+			return;
+		}
+		const start = textareaEl.selectionStart ?? content.length;
+		const end = textareaEl.selectionEnd ?? content.length;
+		content = content.slice(0, start) + text + content.slice(end);
+		requestAnimationFrame(() => {
+			if (textareaEl) {
+				textareaEl.selectionStart = textareaEl.selectionEnd = start + text.length;
+				textareaEl.focus();
+			}
+		});
+	}
+
+	async function handleImageFile(file: File) {
+		uploading = true;
+		saveMsg = '';
+		try {
+			const fd = new FormData();
+			fd.append('file', file);
+			const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
+				saveMsg = `Upload failed: ${(data as { error?: string }).error ?? res.status}`;
+				return;
+			}
+			const { url } = (await res.json()) as { url: string };
+			const alt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+			insertAtCursor(`\n![${alt}](${url})\n`);
+		} finally {
+			uploading = false;
+			if (fileInputEl) fileInputEl.value = '';
+		}
+	}
+
+	async function onFileInput(e: Event) {
+		const file = (e.target as HTMLInputElement).files?.[0];
+		if (file) await handleImageFile(file);
+	}
+
+	function onPaste(e: ClipboardEvent) {
+		const file = Array.from(e.clipboardData?.items ?? [])
+			.find((i) => i.kind === 'file' && i.type.startsWith('image/'))
+			?.getAsFile();
+		if (file) {
+			e.preventDefault();
+			handleImageFile(file);
 		}
 	}
 
@@ -173,16 +226,13 @@
 </svelte:head>
 
 <main class="mx-auto max-w-3xl px-6 pt-20 pb-24">
+
 	<!-- ── AUTH GATE ───────────────────────────────────────── -->
 	{#if !data.authenticated}
 		<div class="mt-8 max-w-xs">
-			<p class="mono mb-8 text-[10px] uppercase tracking-[0.22em]" style="color: var(--ink);">
-				Admin
-			</p>
+			<p class="mono mb-8 text-[10px] uppercase tracking-[0.22em]" style="color: var(--ink);">Admin</p>
 			<label class="block">
-				<span class="mono block mb-2 text-[10px] uppercase tracking-[0.15em]" style="color: var(--ink-muted);">
-					Write key
-				</span>
+				<span class="mono block mb-2 text-[10px] uppercase tracking-[0.15em]" style="color: var(--ink-muted);">Write key</span>
 				<input
 					type="password"
 					bind:value={keyInput}
@@ -196,11 +246,7 @@
 			{#if authError}
 				<p class="mono mt-2 text-[11px]" style="color: #ef4444;">{authError}</p>
 			{/if}
-			<button
-				onclick={login}
-				disabled={authLoading}
-				class="btn btn-primary mt-4 w-full justify-center"
-			>
+			<button onclick={login} disabled={authLoading} class="btn btn-primary mt-4 w-full justify-center">
 				{authLoading ? 'checking…' : 'unlock →'}
 			</button>
 		</div>
@@ -213,35 +259,59 @@
 				onclick={logout}
 				class="mono text-[10px] uppercase tracking-[0.15em] transition-opacity hover:opacity-50"
 				style="color: var(--ink-faint);"
-			>
-				sign out
-			</button>
+			>sign out</button>
 		</div>
 
 		{#if data.devMode}
 			<p class="mono mt-8 text-[12px]" style="color: var(--ink-muted);">
-				D1 not available in <code>npm run dev</code>. Run <code>wrangler pages dev</code> or deploy to Cloudflare to write posts.
+				D1 not available in <code>npm run dev</code>. Deploy to Cloudflare to write posts.
 			</p>
 		{:else}
 			<div class="mt-10">
 				{#if posts.length > 0}
-					{#each posts as post}
-						<button
-							onclick={() => openEdit(post)}
-							class="row-hover group flex w-full items-baseline justify-between border-t -mx-4 px-4 py-4 text-left hover:no-underline"
+					{#each posts as post (post.slug)}
+						<div
+							class="flex items-center justify-between gap-3 border-t -mx-4 px-4 py-3"
 							style="border-color: var(--border);"
 						>
-							<span class="serif text-[18px] leading-tight" style="color: var(--ink);">{post.title}</span>
-							<div class="mono flex shrink-0 items-center gap-3 text-[10px] uppercase tracking-[0.1em]" style="color: var(--ink-faint);">
-								<span>{post.date}</span>
-								<span
-									class="px-1.5 py-0.5 border text-[9px]"
-									style="border-color: {post.published ? 'var(--accent)' : 'var(--border-strong)'}; color: {post.published ? 'var(--accent)' : 'var(--ink-faint)'};"
-								>
-									{post.published ? 'live' : 'draft'}
-								</span>
+							<!-- Title + meta -->
+							<div class="min-w-0 flex-1">
+								<p class="serif truncate text-[17px] leading-tight" style="color: var(--ink);">{post.title}</p>
+								<p class="mono mt-0.5 text-[10px]" style="color: var(--ink-faint);">
+									{post.date} ·
+									<span style="color: {post.published ? 'var(--accent)' : 'var(--ink-faint)'};">
+										{post.published ? 'live' : 'draft'}
+									</span>
+								</p>
 							</div>
-						</button>
+
+							<!-- Actions -->
+							<div class="mono flex shrink-0 items-center gap-3 text-[10px] uppercase tracking-[0.12em]">
+								<button
+									onclick={() => openEdit(post)}
+									class="transition-opacity hover:opacity-60"
+									style="color: var(--ink-muted);"
+								>edit</button>
+
+								{#if deleteConfirmSlug === post.slug}
+									<button
+										onclick={() => deleteFromList(post.slug)}
+										class="font-medium"
+										style="color: #ef4444;"
+									>confirm</button>
+									<button
+										onclick={() => (deleteConfirmSlug = null)}
+										style="color: var(--ink-faint);"
+									>cancel</button>
+								{:else}
+									<button
+										onclick={() => (deleteConfirmSlug = post.slug)}
+										class="transition-opacity hover:opacity-60"
+										style="color: var(--ink-faint);"
+									>delete</button>
+								{/if}
+							</div>
+						</div>
 					{/each}
 					<div class="border-t" style="border-color: var(--border);"></div>
 				{:else}
@@ -249,9 +319,7 @@
 				{/if}
 			</div>
 
-			<button onclick={openNew} class="btn btn-primary mt-10">
-				+ new post
-			</button>
+			<button onclick={openNew} class="btn btn-primary mt-10">+ new post</button>
 		{/if}
 
 	<!-- ── EDITOR ───────────────────────────────────────────── -->
@@ -261,11 +329,9 @@
 				onclick={() => (view = 'list')}
 				class="mono link-reveal text-[11px] uppercase tracking-[0.2em]"
 				style="color: var(--ink-muted);"
-			>
-				← posts
-			</button>
+			>← posts</button>
 			{#if saveMsg}
-				<span class="mono text-[11px]" style="color: var(--accent);">{saveMsg}</span>
+				<span class="mono text-[11px]" style="color: {saveMsg.startsWith('Error') || saveMsg.startsWith('Upload') ? '#ef4444' : 'var(--accent)'};">{saveMsg}</span>
 			{/if}
 		</div>
 
@@ -330,31 +396,55 @@
 				</label>
 			</div>
 
-			<!-- Write / Preview tabs -->
+			<!-- Write / Preview / Image toolbar -->
 			<div>
-				<div class="mb-0 flex border-b" style="border-color: var(--border);">
-					<button
-						onclick={() => (tab = 'write')}
-						class="mono px-4 py-2 text-[10px] uppercase tracking-[0.15em] border-b-2 -mb-px transition-colors"
-						style="border-color: {tab === 'write' ? 'var(--ink)' : 'transparent'}; color: {tab === 'write' ? 'var(--ink)' : 'var(--ink-faint)'};"
-					>
-						Write
-					</button>
-					<button
-						onclick={() => (tab = 'preview')}
-						class="mono px-4 py-2 text-[10px] uppercase tracking-[0.15em] border-b-2 -mb-px transition-colors"
-						style="border-color: {tab === 'preview' ? 'var(--ink)' : 'transparent'}; color: {tab === 'preview' ? 'var(--ink)' : 'var(--ink-faint)'};"
-					>
-						Preview
-					</button>
+				<div class="flex items-center justify-between border-b" style="border-color: var(--border);">
+					<div class="flex">
+						<button
+							onclick={() => (tab = 'write')}
+							class="mono px-4 py-2 text-[10px] uppercase tracking-[0.15em] border-b-2 -mb-px transition-colors"
+							style="border-color: {tab === 'write' ? 'var(--ink)' : 'transparent'}; color: {tab === 'write' ? 'var(--ink)' : 'var(--ink-faint)'};"
+						>Write</button>
+						<button
+							onclick={() => (tab = 'preview')}
+							class="mono px-4 py-2 text-[10px] uppercase tracking-[0.15em] border-b-2 -mb-px transition-colors"
+							style="border-color: {tab === 'preview' ? 'var(--ink)' : 'transparent'}; color: {tab === 'preview' ? 'var(--ink)' : 'var(--ink-faint)'};"
+						>Preview</button>
+					</div>
+
+					<!-- Image upload button (only shown in write tab) -->
+					{#if tab === 'write'}
+						<button
+							onclick={() => fileInputEl?.click()}
+							disabled={uploading}
+							class="mono flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] border transition-opacity hover:opacity-60 mb-1"
+							style="color: var(--ink-muted); border-color: var(--border-strong);"
+							title="Upload image (or paste from clipboard)"
+						>
+							{#if uploading}
+								uploading…
+							{:else}
+								↑ image
+							{/if}
+						</button>
+						<input
+							bind:this={fileInputEl}
+							type="file"
+							accept="image/*"
+							class="hidden"
+							onchange={onFileInput}
+						/>
+					{/if}
 				</div>
 
 				{#if tab === 'write'}
 					<textarea
+						bind:this={textareaEl}
 						bind:value={content}
+						onpaste={onPaste}
 						class="mono w-full border border-t-0 px-4 py-4 text-[13px] leading-[1.7] outline-none resize-none"
 						style="background: var(--bg-subtle); color: var(--ink); border-color: var(--border-strong); min-height: 480px;"
-						placeholder="Write in Markdown…"
+						placeholder="Write in Markdown… paste or drag an image to upload it inline"
 						spellcheck="false"
 					></textarea>
 				{:else}
@@ -367,48 +457,40 @@
 				{/if}
 			</div>
 
-			<!-- Actions -->
+			<!-- Actions bar -->
 			<div class="flex flex-wrap items-center justify-between gap-4 pt-2">
-				<div class="flex items-center gap-3">
-					<button
-						onclick={() => (published = !published)}
-						class="mono flex items-center gap-2 text-[11px] uppercase tracking-[0.15em] transition-opacity hover:opacity-70"
-						style="color: {published ? 'var(--accent)' : 'var(--ink-faint)'};"
-					>
-						<span
-							class="inline-block h-2 w-2 rounded-full border"
-							style="background: {published ? 'var(--accent)' : 'transparent'}; border-color: {published ? 'var(--accent)' : 'var(--ink-faint)'};"
-						></span>
-						{published ? 'published' : 'draft'}
-					</button>
-				</div>
+				<button
+					onclick={() => (published = !published)}
+					class="mono flex items-center gap-2 text-[11px] uppercase tracking-[0.15em] transition-opacity hover:opacity-70"
+					style="color: {published ? 'var(--accent)' : 'var(--ink-faint)'};"
+				>
+					<span
+						class="inline-block h-2 w-2 rounded-full border"
+						style="background: {published ? 'var(--accent)' : 'transparent'}; border-color: {published ? 'var(--accent)' : 'var(--ink-faint)'};"
+					></span>
+					{published ? 'published' : 'draft'}
+				</button>
 
-				<div class="flex items-center gap-3">
+				<div class="flex items-center gap-4">
 					{#if editingSlug}
 						{#if deleteConfirm}
 							<button
-								onclick={remove}
+								onclick={removeFromEditor}
 								disabled={saving}
 								class="mono text-[11px] uppercase tracking-[0.15em]"
 								style="color: #ef4444;"
-							>
-								confirm delete
-							</button>
+							>confirm delete</button>
 							<button
 								onclick={() => (deleteConfirm = false)}
 								class="mono text-[11px] uppercase tracking-[0.15em]"
 								style="color: var(--ink-faint);"
-							>
-								cancel
-							</button>
+							>cancel</button>
 						{:else}
 							<button
 								onclick={() => (deleteConfirm = true)}
 								class="mono text-[11px] uppercase tracking-[0.15em] transition-opacity hover:opacity-70"
 								style="color: var(--ink-faint);"
-							>
-								delete
-							</button>
+							>delete</button>
 						{/if}
 					{/if}
 					<button

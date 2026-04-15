@@ -7,3 +7,7 @@ pages_build_output_dir = ".svelte-kit/cloudflare"
 binding = "DB"
 database_name = "ashutosh-blog"
 database_id = "2fdf7146-f834-48de-aa5f-c2191e4c106d"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "blog-images"

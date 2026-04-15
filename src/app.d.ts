@@ -6,6 +6,7 @@ declare global {
 			env: {
 				DB: D1Database;
 				WRITE_KEY: string;
+				IMAGES: R2Bucket;
 			};
 			context: ExecutionContext;
 			caches: CacheStorage & { default: Cache };
