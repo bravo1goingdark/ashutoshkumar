@@ -1,0 +1,27 @@
+{
+  "name": "Ashutosh Kumar",
+  "short_name": "Ashutosh",
+  "description": "Backend & Systems Engineer — Rust, Go, TypeScript",
+  "start_url": "/",
+  "display": "browser",
+  "theme_color": "#0c0a09",
+  "background_color": "#fafaf9",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
