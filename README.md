@@ -1,3 +1,5 @@
+![Ashutosh Kumar — Backend & Systems Engineer](./static/og.png)
+
 # ashutosh kumar
 
 **[ashutoshk.pages.dev](https://ashutoshk.pages.dev)** — personal portfolio & writing.
