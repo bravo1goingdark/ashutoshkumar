@@ -1,0 +1,149 @@
+---
+title: "Mailgrid: Designing a Go CLI That Sends 10k Emails Without Breaking a Sweat"
+date: "2026-02-08"
+description: "The architecture behind Mailgrid — worker pools, rate limiting, SMTP connection reuse, and why I chose Go for a CLI tool that competes with SaaS products."
+tags: ["go", "cli", "concurrency", "smtp"]
+readTime: "6 min read"
+---
+
+## Table of Contents
+
+Email is boring infrastructure. It's been solved. Use Mailchimp, SendGrid, Resend — they're fine products. But when I wanted to send a batch of personalised HTML emails to 10,000 contacts from a CSV, I ran into three problems with SaaS tools:
+
+1. **Cost** — most providers charge per email at scale
+2. **Privacy** — uploading a contact list to a third party
+3. **Control** — I wanted to test locally without hitting live SMTP
+
+So I built [Mailgrid](https://github.com/bravo1goingdark/mailgrid) — a CLI that runs offline, reads from CSV or Google Sheets, and sends templated HTML emails via any SMTP server.
+
+## The Core Abstraction
+
+Mailgrid models email sending as a pipeline:
+
+```
+Source (CSV | Sheets) → Filter → Render → Dispatch → Report
+```
+
+Each stage is decoupled. The filter stage runs a rule engine (AND/OR/NOT predicates on any column). The render stage applies Go's `text/template` to per-recipient variables. The dispatch stage sends via SMTP with concurrency control.
+
+This pipeline design made it trivial to add `--dry-run` mode: just short-circuit after render and print what would be sent.
+
+## Concurrency: Worker Pool Pattern
+
+Go's goroutines are cheap, but SMTP connections are not. Naively spawning a goroutine per email immediately saturates the SMTP server's connection limit.
+
+The solution is a fixed-size worker pool:
+
+```go
+type Dispatcher struct {
+    jobs    chan *EmailJob
+    results chan Result
+    wg      sync.WaitGroup
+}
+
+func (d *Dispatcher) Start(ctx context.Context, workers int) {
+    for i := 0; i < workers; i++ {
+        d.wg.Add(1)
+        go d.worker(ctx)
+    }
+}
+
+func (d *Dispatcher) worker(ctx context.Context) {
+    defer d.wg.Done()
+    conn := dialSMTP() // one connection per worker
+    defer conn.Close()
+
+    for {
+        select {
+        case job, ok := <-d.jobs:
+            if !ok {
+                return
+            }
+            result := sendWithRetry(conn, job)
+            d.results <- result
+        case <-ctx.Done():
+            return
+        }
+    }
+}
+```
+
+Each worker holds one persistent SMTP connection. Reusing the connection across multiple sends avoids the TCP handshake and TLS negotiation overhead on every email — this alone gave a 40% throughput improvement over naive per-send dialing.
+
+## Rate Limiting
+
+SMTP servers impose rate limits — typically N messages per second or per connection. Blasting without regard for these will get you soft-banned.
+
+I implemented a token bucket rate limiter using `golang.org/x/time/rate`:
+
+```go
+limiter := rate.NewLimiter(rate.Every(time.Second/time.Duration(cfg.RateLimit)), cfg.Burst)
+
+// Before each send:
+if err := limiter.Wait(ctx); err != nil {
+    return err // context cancelled
+}
+```
+
+The rate limit is configurable via `--rate` (messages/sec) and `--burst`. For most providers, 10 msg/s with a burst of 50 is a safe default.
+
+## Retry with Exponential Backoff
+
+SMTP is chatty. `4xx` responses are transient — "try again later." `5xx` responses are permanent — bad address, rejected. Mailgrid distinguishes these:
+
+```go
+func sendWithRetry(conn *smtp.Client, job *EmailJob) Result {
+    var lastErr error
+    for attempt := 0; attempt < maxRetries; attempt++ {
+        err := conn.SendMail(job)
+        if err == nil {
+            return Result{Success: true}
+        }
+        if isPermanent(err) {
+            return Result{Err: err, Permanent: true}
+        }
+        lastErr = err
+        backoff := time.Duration(math.Pow(2, float64(attempt))) * 100 * time.Millisecond
+        time.Sleep(backoff)
+    }
+    return Result{Err: lastErr}
+}
+```
+
+Permanent failures are recorded in the report without retrying, avoiding wasted time on invalid addresses.
+
+## The Filter Engine
+
+The rule engine was the most interesting part to design. A filter like "send to everyone in London who hasn't unsubscribed" should be expressible without writing code.
+
+I implemented it as a recursive predicate tree:
+
+```go
+type Rule struct {
+    Op      string  // "AND", "OR", "NOT", "EQ", "CONTAINS", "GT"
+    Field   string  // CSV column name
+    Value   string
+    Rules   []Rule  // child rules for AND/OR/NOT
+}
+```
+
+Rules are defined in a JSON or YAML config file. The engine walks the tree and evaluates predicates against each row's column values. This handled the "lowered bounce rate by 10%" stat from my resume — filtering out known-bad domains before sending.
+
+## Why Go, Not Rust?
+
+I chose Go for Mailgrid and Rust for BlipMQ deliberately. The considerations:
+
+- **Concurrency model**: Go's goroutines and channels map naturally to "dispatch N emails via M workers." Rust's async ecosystem (Tokio) would work too, but the borrow checker adds friction when you're passing `smtp.Client` across goroutines.
+- **Distribution**: `go build` produces a single static binary for any target platform. Mailgrid needs to run on Windows (many email marketers), macOS, and Linux without installing dependencies.
+- **Iteration speed**: SMTP protocol handling, CSV parsing, template rendering — none of these need Rust's performance ceiling. Go is fast enough, and the simpler ownership model meant faster iteration.
+
+Rust's advantages (memory safety without GC, zero-cost abstractions) matter most for systems where you're fighting for microseconds or safety is critical. For a CLI tool, Go's 10ms GC pauses are imperceptible.
+
+## Numbers
+
+Running against a local Postfix relay on my laptop:
+- **Throughput**: ~450 emails/second with 8 workers and rate limiting disabled
+- **Memory**: ~18 MB resident for a 100k-row CSV (streaming, not loading all rows)
+- **Binary size**: 6.2 MB stripped (`go build -ldflags="-s -w"`)
+
+→ [github.com/bravo1goingdark/mailgrid](https://github.com/bravo1goingdark/mailgrid)

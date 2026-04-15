@@ -1,0 +1,99 @@
+---
+title: "Building BlipMQ: A Minimal Message Broker in Rust"
+date: "2026-01-15"
+description: "Why I built a pub/sub broker from scratch, the architectural decisions behind BlipMQ, and what I learned about lock-free queues in Rust."
+tags: ["rust", "systems", "distributed-systems", "message-broker"]
+readTime: "8 min read"
+---
+
+## Table of Contents
+
+Most developers reach for Kafka or RabbitMQ when they need a message broker. These are excellent tools — battle-tested, feature-rich, operationally mature. But when I needed a lightweight pub/sub layer for a hobby project, I kept running into the same wall: the setup overhead dwarfed the actual work I wanted to do.
+
+So I built [BlipMQ](https://blipmq.dev) — a minimal pub/sub message broker in Rust that "just works" without the ceremony.
+
+## The Problem With Existing Brokers for Small Services
+
+Kafka is a distributed log. It's phenomenal for high-throughput event streaming at scale, but running it locally means running ZooKeeper (or KRaft), a broker, and often a schema registry. That's three services before you've written a single line of business logic.
+
+RabbitMQ is closer to what most people actually need — it speaks AMQP, has flexible routing, and is far simpler to run. But it still carries AMQP's complexity baggage: exchanges, bindings, channels, virtual hosts.
+
+For the common case of "service A produces events, services B and C consume them," this is all overhead.
+
+## What BlipMQ Does
+
+BlipMQ is built around three primitives:
+
+1. **Topics** — named channels that producers publish to
+2. **Subscriptions** — consumer groups that receive messages from a topic
+3. **Messages** — byte payloads with an optional key for partitioning
+
+That's it. No exchanges, no bindings, no schemas. Publish to a topic, subscribe to a topic.
+
+```rust
+// Producer
+let client = BlipClient::connect("localhost:5150").await?;
+client.publish("orders", b"order_id=42").await?;
+
+// Consumer
+let mut sub = client.subscribe("orders", "billing-service").await?;
+while let Some(msg) = sub.next().await {
+    process(msg.payload()).await?;
+    msg.ack().await?;
+}
+```
+
+## The Internal Queue Design
+
+The most interesting engineering decision in BlipMQ is the queue implementation. I wanted zero-allocation message passing on the hot path.
+
+The core is an SPSC (Single-Producer Single-Consumer) queue backed by a ring buffer:
+
+```rust
+pub struct SpscQueue<T> {
+    buffer: Box<[MaybeUninit<T>]>,
+    capacity: usize,
+    head: AtomicUsize,
+    tail: AtomicUsize,
+}
+```
+
+Head and tail are `AtomicUsize` on separate cache lines to avoid false sharing. The capacity is always a power of two, so indexing is a bitwise AND instead of a modulo.
+
+For multi-consumer topics, I use an MPSC (Multi-Producer Single-Consumer) queue where the topic actor owns the consumer side and fans out to per-subscriber SPSC queues. This keeps the fan-out path contention-free — each subscriber has its own exclusive queue.
+
+## Backpressure and Flow Control
+
+One thing I got wrong in v1: no backpressure. Producers could flood a topic faster than consumers could drain it, causing unbounded memory growth.
+
+The fix was simple but effective: each SPSC queue has a configured `capacity`. When the queue is full, `publish` returns `Err(QueueFull)`. Producers are expected to handle this — either by blocking, retrying with backoff, or dropping the message.
+
+```rust
+pub enum PublishError {
+    QueueFull,
+    TopicNotFound,
+    Disconnected,
+}
+```
+
+This makes the backpressure explicit rather than hiding it behind internal buffering. Consumers that fall behind will eventually signal upstream pressure through `QueueFull` errors.
+
+## What I Learned
+
+**Lock-free is not magic.** `AtomicUsize::load(Acquire)` and `store(Release)` are not free — they're memory fences that still talk to the cache coherence protocol. They're faster than mutexes under contention, but a mutex is often the right answer when you're not on a hot path.
+
+**False sharing is real.** I spent a day chasing a throughput cliff until I put `head` and `tail` on separate 64-byte aligned cache lines. The difference was 3x on a 16-core machine.
+
+**The network layer dominates.** After optimising the queue to death, I profiled end-to-end throughput and found 80% of latency was in TCP frame parsing. A custom binary framing protocol over raw TCP (instead of text-based protocols) cut that significantly.
+
+## What's Next
+
+BlipMQ is usable but not production-ready in the "run this at work" sense. Things I want to add:
+
+- **Persistence** — durable subscriptions that survive broker restarts (considering redb, an embedded ACID key-value store in Rust)
+- **Clustering** — a simple Raft-based leader election for HA
+- **Retention policies** — time-based and size-based message expiry
+
+The goal is to stay small. If you need Kafka, use Kafka. BlipMQ is for the space between "just use a channel" and "stand up a full broker."
+
+→ [github.com/bravo1goingdark/blipmq](https://github.com/bravo1goingdark/blipmq)

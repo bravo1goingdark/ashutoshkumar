@@ -1,0 +1,143 @@
+---
+title: "Content Fingerprinting at Scale: How UCFP Detects Near-Duplicate Text and Video"
+date: "2026-03-10"
+description: "A deep dive into UCFP's canonical and perceptual fingerprinting pipelines — MinHash, SimHash, perceptual hashing, and the match orchestration layer that ties it together."
+tags: ["rust", "systems", "nlp", "hashing", "fingerprinting"]
+readTime: "10 min read"
+---
+
+## Table of Contents
+
+The problem of detecting duplicate or near-duplicate content is deceptively hard. Exact matching is trivial — hash the content, compare hashes. But content reuse in the real world is messy: paraphrased text, re-encoded video, trimmed clips, normalised whitespace, translated excerpts.
+
+UCFP (Universal Content Fingerprinting Framework) is my attempt to solve this robustly — a multimodal fingerprinting engine in Rust that handles both text and video content with sub-second matching.
+
+## The Two Families of Fingerprints
+
+UCFP generates two types of fingerprints for each document or video:
+
+**Canonical fingerprints** identify content after normalisation. For text, this means Unicode normalisation (NFC/NFD), lowercasing, punctuation stripping, and stopword removal. Two documents with different formatting but the same semantic content will produce the same canonical fingerprint.
+
+**Perceptual fingerprints** identify content with tolerance for minor modifications. A 30-second clip trimmed from a 5-minute video, or a document with one paragraph added, should still match. This requires algorithms that are *similar* for similar inputs, not just identical for identical ones.
+
+## Text Fingerprinting
+
+### Canonical: SHA-256 of Normalised Text
+
+After normalisation, the canonical fingerprint is simply SHA-256 of the token sequence. Exact matches after normalisation are caught here with zero false positives.
+
+```rust
+fn canonical_text(input: &str) -> [u8; 32] {
+    let normalised = normalise(input); // unicode, lowercase, strip punct
+    let tokens: Vec<&str> = tokenise(&normalised)
+        .filter(|t| !STOPWORDS.contains(t))
+        .collect();
+    let joined = tokens.join(" ");
+    sha256(joined.as_bytes())
+}
+```
+
+### Perceptual: MinHash + LSH
+
+For near-duplicate detection, I use MinHash over word shingles (n-grams). MinHash estimates Jaccard similarity between two documents without comparing all pairs of shingles:
+
+```rust
+fn minhash(tokens: &[&str], k: usize, num_hashes: usize) -> Vec<u64> {
+    let shingles: HashSet<u64> = tokens
+        .windows(k)
+        .map(|w| xxhash64(w.join(" ").as_bytes()))
+        .collect();
+
+    (0..num_hashes)
+        .map(|seed| {
+            shingles.iter()
+                .map(|&h| hash_with_seed(h, seed))
+                .min()
+                .unwrap_or(u64::MAX)
+        })
+        .collect()
+}
+```
+
+The resulting MinHash signature (a vector of `num_hashes` u64 values) is then indexed with Locality-Sensitive Hashing (LSH) for sub-linear query time. Documents with Jaccard similarity above a configurable threshold are candidate matches.
+
+For `num_hashes = 128` and a threshold of 0.8, UCFP achieves under 1% false negative rate on paraphrased news articles.
+
+### Semantic: SimHash
+
+For documents that are paraphrased rather than copied, n-gram similarity breaks down. UCFP optionally generates a SimHash over TF-IDF weighted term vectors. SimHash maps a high-dimensional vector to a compact bit fingerprint (64 bits) such that similar vectors produce fingerprints with low Hamming distance.
+
+Hamming distance queries are extremely fast — `popcount(a XOR b)` is a single CPU instruction on x86.
+
+## Video Fingerprinting
+
+Video is more complex because the content can be spatially transformed, temporally shifted, and re-encoded.
+
+### Frame-level Perceptual Hashing
+
+For each keyframe, UCFP generates a perceptual hash (pHash) via discrete cosine transform:
+
+```rust
+fn phash(frame: &GrayImage) -> u64 {
+    let resized = resize(frame, 32, 32, FilterType::Lanczos3);
+    let dct = compute_dct_2d(&resized);
+    // Use top-left 8x8 of DCT (low frequencies)
+    let median = median(&dct[..64]);
+    let mut hash = 0u64;
+    for (i, &val) in dct[..64].iter().enumerate() {
+        if val > median {
+            hash |= 1 << i;
+        }
+    }
+    hash
+}
+```
+
+pHash is robust to:
+- Brightness/contrast adjustments
+- Minor crops and scaling
+- Re-encoding (H.264 → H.265, different bitrates)
+- Colour space changes
+
+It is *not* robust to heavy spatial transformations (flips, rotations) or major temporal resampling. Those require additional processing.
+
+### Temporal Fingerprinting
+
+A single-frame pHash isn't enough — a video is a sequence. UCFP builds a **temporal signature**: a sorted sequence of (timestamp, pHash) pairs, sampled at 1 fps from keyframes.
+
+Matching two temporal signatures is done with dynamic time warping (DTW) to handle clips that are temporally offset or played at different speeds. A match is declared when the DTW distance falls below a configurable threshold.
+
+## The Match Orchestration Layer
+
+With multiple fingerprint types across multiple modalities, UCFP needs a layer to coordinate queries and aggregate results.
+
+```rust
+pub struct MatchResult {
+    pub candidate_id: DocumentId,
+    pub canonical_match: bool,
+    pub minhash_similarity: f64,
+    pub simhash_hamming: u32,
+    pub phash_similarity: f64,  // video only
+    pub dtw_distance: f64,       // video only
+    pub confidence: f64,         // weighted aggregate
+    pub false_positive_risk: FpRisk,
+}
+```
+
+The `confidence` score is a weighted combination of the individual similarity signals. Weights are configurable and can be tuned per use case. A canonical match alone is sufficient for `confidence = 1.0`. MinHash similarity of 0.9 with matching SimHash contributes to a high but not perfect confidence.
+
+`FpRisk` classifies the result:
+
+- `Low` — multiple independent signals agree, very unlikely to be a false positive
+- `Medium` — single signal match, borderline threshold
+- `High` — near-threshold match on a weak signal, manual review recommended
+
+## Engineering Lessons
+
+**Redb for the index.** I evaluated RocksDB, LMDB, and redb (an embedded ACID key-value store written in Rust). Redb won on three axes: compile-time type safety, no C dependency (pure Rust), and a clean API. Write throughput is lower than RocksDB, but for an offline fingerprinting index, that's acceptable.
+
+**FFmpeg is a dependency, not a library.** Calling FFmpeg via subprocess is messy — parsing stdout, handling error codes, managing temp files. I eventually wrote a thin Rust wrapper around the FFmpeg C API via bindgen. It was painful to set up but much cleaner at runtime.
+
+**Threshold selection is a product decision, not an engineering decision.** I spent too long trying to find the "right" threshold for near-duplicate detection. The right threshold depends on the application: a copyright enforcement system wants very low false negatives; a recommendation system wants low false positives. UCFP exposes all thresholds as configuration and ships with sensible defaults for both use cases.
+
+→ [github.com/bravo1goingdark/ucfp](https://github.com/bravo1goingdark/ucfp)
