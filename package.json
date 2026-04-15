@@ -9,9 +9,14 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "deploy": "npm run build && npx wrangler@latest pages deploy .svelte-kit/cloudflare --project-name ashutoshk"
+    "deploy": "npm run build && npx wrangler@latest pages deploy .svelte-kit/cloudflare --project-name ashutoshk",
+    "db:migrate": "npx wrangler@latest d1 execute ashutosh-blog --remote --file=migrations/0001_posts.sql",
+    "db:migrate:local": "npx wrangler@latest d1 execute ashutosh-blog --local --file=migrations/0001_posts.sql",
+    "db:seed": "node scripts/seed-posts.mjs",
+    "dev:cf": "npm run build -- --no-prebuild 2>/dev/null; npx wrangler@latest pages dev .svelte-kit/cloudflare --d1 DB=ashutosh-blog"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260415.1",
     "@sveltejs/adapter-cloudflare": "^4.9.0",
     "@sveltejs/kit": "^2.20.4",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
@@ -31,7 +36,8 @@
     "@fontsource-variable/inter": "^5.1.1",
     "@fontsource-variable/inter-tight": "^5.2.7",
     "@fontsource/instrument-serif": "^5.2.8",
-    "@fontsource/jetbrains-mono": "^5.1.1"
+    "@fontsource/jetbrains-mono": "^5.1.1",
+    "marked": "^14.1.4"
   },
   "type": "module"
 }

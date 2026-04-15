@@ -1,5 +1,6 @@
 <script lang="ts">
 	let { data } = $props();
+	const { post, contentHtml } = data;
 
 	function formatDate(dateStr: string) {
 		return new Date(dateStr).toLocaleDateString('en-US', {
@@ -11,10 +12,10 @@
 </script>
 
 <svelte:head>
-	<title>{data.metadata.title} — Ashutosh Kumar</title>
-	<meta name="description" content={data.metadata.description} />
-	<meta property="og:title" content="{data.metadata.title} — Ashutosh Kumar" />
-	<meta property="og:description" content={data.metadata.description} />
+	<title>{post.title} — Ashutosh Kumar</title>
+	<meta name="description" content={post.description} />
+	<meta property="og:title" content="{post.title} — Ashutosh Kumar" />
+	<meta property="og:description" content={post.description} />
 	<meta name="twitter:card" content="summary" />
 	<meta name="twitter:creator" content="@bravo1goingdark" />
 </svelte:head>
@@ -35,15 +36,12 @@
 			class="serif text-[40px] leading-[1.05] tracking-tight sm:text-[52px]"
 			style="color: var(--ink);"
 		>
-			{data.metadata.title}
+			{post.title}
 		</h1>
 
-		{#if data.metadata.description}
-			<p
-				class="mt-7 max-w-xl text-[17px] leading-[1.65]"
-				style="color: var(--ink-muted);"
-			>
-				{data.metadata.description}
+		{#if post.description}
+			<p class="mt-7 max-w-xl text-[17px] leading-[1.65]" style="color: var(--ink-muted);">
+				{post.description}
 			</p>
 		{/if}
 
@@ -51,30 +49,27 @@
 			class="mono mt-9 flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] uppercase tracking-[0.15em]"
 			style="color: var(--ink-faint);"
 		>
-			<span>{formatDate(data.metadata.date)}</span>
-			{#if data.metadata.readTime}
+			<span>{formatDate(post.date)}</span>
+			{#if post.readTime}
 				<span aria-hidden="true">·</span>
-				<span>{data.metadata.readTime}</span>
+				<span>{post.readTime}</span>
 			{/if}
-			{#if data.metadata.tags?.length}
+			{#if post.tags?.length}
 				<span aria-hidden="true">·</span>
-				{#each data.metadata.tags as tag, i}
-					<span>{tag}{#if i < data.metadata.tags.length - 1}<span aria-hidden="true"> · </span>{/if}</span>
+				{#each post.tags as tag, i}
+					<span>{tag}{#if i < post.tags.length - 1}<span aria-hidden="true">&nbsp;·&nbsp;</span>{/if}</span>
 				{/each}
 			{/if}
 		</div>
 	</header>
 
-	<!-- Content -->
-	<div class="prose prose-sm max-w-none dark:prose-invert">
-		{#if data.content}
-			{@const PostContent = data.content}
-			<PostContent />
-		{/if}
+	<!-- Content rendered from markdown -->
+	<div class="prose prose-sm max-w-none">
+		{@html contentHtml}
 	</div>
 
 	<!-- Footer -->
-	<div class="mt-20 pt-8 border-t" style="border-color: var(--border);">
+	<div class="mt-20 border-t pt-8" style="border-color: var(--border);">
 		<div class="flex items-center justify-between">
 			<a
 				href="/writing"

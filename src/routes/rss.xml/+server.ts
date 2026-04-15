@@ -1,7 +1,5 @@
 import type { RequestHandler } from '@sveltejs/kit';
-import type { Post } from '$lib/types';
-
-export const prerender = true;
+import { listPosts } from '$lib/server/db';
 
 const SITE_URL = 'https://ashutoshk.pages.dev';
 const SITE_TITLE = 'Ashutosh Kumar';
@@ -15,16 +13,8 @@ function escape(str: string) {
 		.replace(/"/g, '&quot;');
 }
 
-export const GET: RequestHandler = async () => {
-	const modules = import.meta.glob('/src/posts/*.svx', { eager: true });
-
-	const posts: Post[] = Object.entries(modules)
-		.map(([path, module]) => {
-			const slug = path.split('/').pop()?.replace('.svx', '') ?? '';
-			const { metadata } = module as { metadata: Post };
-			return { slug, ...metadata };
-		})
-		.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+export const GET: RequestHandler = async ({ platform }) => {
+	const posts = platform?.env?.DB ? await listPosts(platform.env.DB, true) : [];
 
 	const items = posts
 		.map(
