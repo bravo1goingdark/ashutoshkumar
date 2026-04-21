@@ -20,7 +20,7 @@
 		{/if}
 
 		<!-- Name + Profile photo -->
-		<div class="animate-in animate-in-d1 mt-8 flex items-center gap-6 sm:mt-10">
+		<div class="animate-in animate-in-d1 mt-8 flex items-center gap-8 sm:mt-10">
 			<h1
 				class="serif text-[48px] leading-[0.92] sm:text-[72px] lg:text-[92px]"
 				style="color: var(--ink);"
@@ -30,7 +30,8 @@
 			<img
 				src={PROFILE_PHOTO}
 				alt="Ashutosh Kumar"
-				class="h-28 w-28 shrink-0 rounded-full border-4 sm:h-40 sm:w-40"
+				class="h-32 w-32 shrink-0 rounded-full border-4 sm:h-48 sm:w-48"
+>>>>>>> b7e8b9b (feat: add circular profile photo to hero)
 				style="border-color: var(--border-strong);"
 			/>
 		</div>
