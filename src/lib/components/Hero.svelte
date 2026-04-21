@@ -19,20 +19,20 @@
 			</div>
 		{/if}
 
-		<!-- Profile photo + Name -->
+		<!-- Name + Profile photo -->
 		<div class="animate-in animate-in-d1 mt-8 flex items-center gap-6 sm:mt-10">
-			<img
-				src={PROFILE_PHOTO}
-				alt="Ashutosh Kumar"
-				class="h-20 w-20 shrink-0 rounded-full border-2 sm:h-24 sm:w-24"
-				style="border-color: var(--border-strong);"
-			/>
 			<h1
 				class="serif text-[48px] leading-[0.92] sm:text-[72px] lg:text-[92px]"
 				style="color: var(--ink);"
 			>
 				Ashutosh<br />Kumar.
 			</h1>
+			<img
+				src={PROFILE_PHOTO}
+				alt="Ashutosh Kumar"
+				class="h-24 w-24 shrink-0 rounded-[30px] border-4 sm:h-32 sm:w-32"
+				style="border-color: var(--border-strong);"
+			/>
 		</div>
 
 		<!-- Role line -->
