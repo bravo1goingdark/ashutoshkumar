@@ -30,7 +30,7 @@
 			<img
 				src={PROFILE_PHOTO}
 				alt="Ashutosh Kumar"
-				class="h-24 w-24 shrink-0 rounded-[30px] border-4 sm:h-32 sm:w-32"
+				class="h-28 w-28 shrink-0 rounded-[30px] border-4 sm:h-40 sm:w-40"
 				style="border-color: var(--border-strong);"
 			/>
 		</div>
