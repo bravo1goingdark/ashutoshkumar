@@ -31,8 +31,9 @@
 				src={PROFILE_PHOTO}
 				alt="Ashutosh Kumar"
 				class="h-32 w-32 shrink-0 rounded-full border-4 sm:h-48 sm:w-48"
->>>>>>> b7e8b9b (feat: add circular profile photo to hero)
 				style="border-color: var(--border-strong);"
+				loading="eager"
+				fetchpriority="high"
 			/>
 		</div>
 
