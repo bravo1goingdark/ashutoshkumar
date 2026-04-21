@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { profile } from '$lib/content/profile';
 	import StatsBand from './StatsBand.svelte';
+
+	const PROFILE_PHOTO = 'https://avatars.githubusercontent.com/u/70029422?v=4';
 </script>
 
 <section class="relative overflow-hidden" id="top">
@@ -17,13 +19,21 @@
 			</div>
 		{/if}
 
-		<!-- Name -->
-		<h1
-			class="serif animate-in animate-in-d1 mt-8 text-[48px] leading-[0.92] sm:mt-10 sm:text-[72px] lg:text-[92px]"
-			style="color: var(--ink);"
-		>
-			Ashutosh<br />Kumar.
-		</h1>
+		<!-- Profile photo + Name -->
+		<div class="animate-in animate-in-d1 mt-8 flex items-center gap-6 sm:mt-10">
+			<img
+				src={PROFILE_PHOTO}
+				alt="Ashutosh Kumar"
+				class="h-20 w-20 shrink-0 rounded-full border-2 sm:h-24 sm:w-24"
+				style="border-color: var(--border-strong);"
+			/>
+			<h1
+				class="serif text-[48px] leading-[0.92] sm:text-[72px] lg:text-[92px]"
+				style="color: var(--ink);"
+			>
+				Ashutosh<br />Kumar.
+			</h1>
+		</div>
 
 		<!-- Role line -->
 		<p
