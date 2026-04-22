@@ -5,6 +5,7 @@
 	import ProjectRow from '$lib/components/ProjectRow.svelte';
 	import ExperienceBlock from '$lib/components/ExperienceBlock.svelte';
 	import SkillGrid from '$lib/components/SkillGrid.svelte';
+	import { animateOnScroll } from '$lib/actions/animateOnScroll';
 	import { featuredProjects, otherProjects } from '$lib/content/projects';
 	import { hiring, ai, aiProjects, profile } from '$lib/content/profile';
 
@@ -22,7 +23,7 @@
 <Hero />
 
 <!-- ── Flagship work ───────────────────────────────── -->
-<section id="work" class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
+<section id="work" class="mx-auto max-w-3xl px-6 py-20 sm:py-28" use:animateOnScroll>
 	<SectionHeader label="FLAGSHIP WORK" />
 	<div>
 		{#each featuredProjects as project, i}
@@ -65,19 +66,19 @@
 </section>
 
 <!-- ── Experience ──────────────────────────────────── -->
-<section id="experience" class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
+<section id="experience" class="mx-auto max-w-3xl px-6 py-20 sm:py-28" use:animateOnScroll={{ delay: 100 }}>
 	<SectionHeader label="EXPERIENCE & EDUCATION" />
 	<ExperienceBlock />
 </section>
 
 <!-- ── Stack ───────────────────────────────────────── -->
-<section id="stack" class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
+<section id="stack" class="mx-auto max-w-3xl px-6 py-20 sm:py-28" use:animateOnScroll={{ delay: 100 }}>
 	<SectionHeader label="BUILT WITH" />
 	<SkillGrid />
 </section>
 
 <!-- ── AI era ──────────────────────────────────────── -->
-<section id="ai" class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
+<section id="ai" class="mx-auto max-w-3xl px-6 py-20 sm:py-28" use:animateOnScroll={{ delay: 100 }}>
 	<SectionHeader label="ON AI, 2026" />
 
 	<h3
@@ -152,7 +153,7 @@
 
 <!-- ── Writing ─────────────────────────────────────── -->
 {#if data.recentPosts.length > 0}
-	<section id="writing" class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
+	<section id="writing" class="mx-auto max-w-3xl px-6 py-20 sm:py-28" use:animateOnScroll={{ delay: 100 }}>
 		<SectionHeader label="RECENT WRITING" />
 		<div>
 			{#each data.recentPosts as post}
@@ -167,7 +168,8 @@
 					>
 						{post.title}
 					</span>
-					<span
+					<time
+						datetime={post.date}
 						class="mono tabular-nums shrink-0 text-[10px] uppercase tracking-[0.1em]"
 						style="color: var(--ink-faint);"
 					>
@@ -175,7 +177,7 @@
 							year: 'numeric',
 							month: 'short'
 						})}
-					</span>
+					</time>
 				</a>
 			{/each}
 			<div class="border-t" style="border-color: var(--border);"></div>
@@ -193,7 +195,7 @@
 {/if}
 
 <!-- ── For hiring teams ─────────────────────────────── -->
-<section id="hiring" class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
+<section id="hiring" class="mx-auto max-w-3xl px-6 py-20 sm:py-28" use:animateOnScroll={{ delay: 100 }}>
 	<SectionHeader label="FOR HIRING TEAMS" />
 
 	<h3

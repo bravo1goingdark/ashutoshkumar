@@ -259,6 +259,12 @@ a {
 	font-variant-numeric: tabular-nums;
 }
 
+.list-none {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
 /* Link reveal underline */
 .link-reveal {
 	position: relative;

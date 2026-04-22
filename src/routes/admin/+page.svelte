@@ -1,6 +1,28 @@
 <script lang="ts">
 	import { marked } from 'marked';
 
+	interface PostListItem {
+		slug: string;
+		title: string;
+		date: string;
+		published: boolean;
+	}
+
+	interface ApiError {
+		error?: string;
+	}
+
+	interface ApiSlugResponse {
+		ok: boolean;
+		slug?: string;
+	}
+
+	interface FullPost extends PostListItem {
+		description: string;
+		tags: string[];
+		content: string;
+	}
+
 	let { data } = $props();
 
 	// ── Auth gate ────────────────────────────────────────────
@@ -20,8 +42,8 @@
 			if (res.ok) {
 				window.location.reload();
 			} else {
-				const { error } = await res.json();
-				authError = error ?? 'Invalid key';
+				const body = (await res.json()) as ApiError;
+				authError = body.error ?? 'Invalid key';
 			}
 		} finally {
 			authLoading = false;
@@ -34,7 +56,14 @@
 	}
 
 	// ── Post list ────────────────────────────────────────────
-	let posts = $state(data.posts ?? []);
+	let posts = $state<PostListItem[]>([]);
+	let postsInitialized = $state(false);
+	$effect.pre(() => {
+		if (!postsInitialized) {
+			posts = data.posts ?? [];
+			postsInitialized = true;
+		}
+	});
 	// slug of the row currently awaiting delete confirmation
 	let deleteConfirmSlug = $state<string | null>(null);
 
@@ -98,9 +127,9 @@
 		view = 'edit';
 	}
 
-	function openEdit(post: { slug: string; title: string; date: string; published: boolean }) {
+	function openEdit(post: PostListItem) {
 		fetch(`/api/admin/posts/${post.slug}`)
-			.then((r) => r.json())
+			.then((r) => r.json() as Promise<FullPost>)
 			.then((p) => {
 				editingSlug = p.slug;
 				slugCustomized = true;
@@ -136,14 +165,15 @@
 				body: JSON.stringify(body)
 			});
 			if (!res.ok) {
-				const { error } = await res.json();
-				saveMsg = `Error: ${error}`;
+				const body = (await res.json()) as ApiError;
+				saveMsg = `Error: ${body.error ?? 'Unknown error'}`;
 				return;
 			}
-			const { slug: newSlug } = (await res.json()) as { slug?: string; ok: boolean };
+			const result = (await res.json()) as ApiSlugResponse;
 			saveMsg = published ? 'Published.' : 'Saved as draft.';
-			editingSlug = newSlug ?? slugField.trim();
-			posts = await fetch('/api/admin/posts').then((r) => r.json()).catch(() => posts);
+			editingSlug = result.slug ?? slugField.trim();
+			const refreshed = await fetch('/api/admin/posts').then((r) => r.json() as Promise<PostListItem[]>).catch(() => posts);
+			posts = refreshed;
 		} finally {
 			saving = false;
 		}
@@ -187,8 +217,8 @@
 			fd.append('file', file);
 			const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
 			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				saveMsg = `Upload failed: ${(data as { error?: string }).error ?? res.status}`;
+				const body = (await res.json().catch(() => ({}))) as ApiError;
+				saveMsg = `Upload failed: ${body.error ?? res.status}`;
 				return;
 			}
 			const { url } = (await res.json()) as { url: string };

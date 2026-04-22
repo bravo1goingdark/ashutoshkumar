@@ -1,6 +1,7 @@
 <script lang="ts">
 	let { data } = $props();
-	const { post, contentHtml } = data;
+	let post = $derived(data.post);
+	let contentHtml = $derived(data.contentHtml);
 
 	function formatDate(dateStr: string) {
 		return new Date(dateStr).toLocaleDateString('en-US', {
@@ -49,7 +50,7 @@
 			class="mono mt-9 flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] uppercase tracking-[0.15em]"
 			style="color: var(--ink-faint);"
 		>
-			<span>{formatDate(post.date)}</span>
+			<time datetime={post.date}>{formatDate(post.date)}</time>
 			{#if post.readTime}
 				<span aria-hidden="true">·</span>
 				<span>{post.readTime}</span>
@@ -64,9 +65,9 @@
 	</header>
 
 	<!-- Content rendered from markdown -->
-	<div class="prose prose-sm max-w-none">
+	<article class="prose prose-sm max-w-none">
 		{@html contentHtml}
-	</div>
+	</article>
 
 	<!-- Footer -->
 	<div class="mt-20 border-t pt-8" style="border-color: var(--border);">
