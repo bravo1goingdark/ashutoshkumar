@@ -15,6 +15,26 @@
 	const featuredProjects = $derived(projects.filter((p) => p.featured));
 	const otherProjects = $derived(projects.filter((p) => !p.featured));
 	const resumeHref = $derived(site.profile.resumeUrl || '/ashutosh-kumar.pdf');
+
+	let emailCopied = $state(false);
+	let emailCopyTimeout: ReturnType<typeof setTimeout> | undefined;
+
+	async function handleEmailClick() {
+		const addr = site.profile.email;
+		if (!addr) return;
+		// Copy to clipboard so the user always has the address even if no mail
+		// handler is registered on this device.
+		try {
+			await navigator.clipboard.writeText(addr);
+			emailCopied = true;
+			clearTimeout(emailCopyTimeout);
+			emailCopyTimeout = setTimeout(() => (emailCopied = false), 2500);
+		} catch {
+			// Clipboard may be blocked (insecure context, denied permission); silently fall through.
+		}
+		// Try the default mail client. No-op on devices without one.
+		window.location.href = `mailto:${addr}`;
+	}
 </script>
 
 <svelte:head>
@@ -360,15 +380,30 @@
 			ready to ship.
 		</p>
 		<div class="mt-8 flex flex-wrap items-center gap-3">
-			<a href="mailto:{site.profile.email}" class="btn btn-primary">
-				Email me
-				<span aria-hidden="true">→</span>
-			</a>
+			{#if site.profile.email}
+				<button type="button" onclick={handleEmailClick} class="btn btn-primary">
+					Email me
+					<span aria-hidden="true">→</span>
+				</button>
+			{/if}
 			<a href={resumeHref} download class="btn btn-secondary">
 				<span aria-hidden="true">↓</span>
 				Résumé
 			</a>
 		</div>
+		{#if emailCopied}
+			<p
+				class="mono mt-3 text-[11px] uppercase tracking-[0.12em]"
+				style="color: var(--accent);"
+				aria-live="polite"
+			>
+				{site.profile.email} — copied to clipboard
+			</p>
+		{:else if site.profile.email}
+			<p class="mono mt-3 text-[11px]" style="color: var(--ink-faint);">
+				or copy: <span style="color: var(--ink-muted);">{site.profile.email}</span>
+			</p>
+		{/if}
 	</div>
 </section>
 {/if}
