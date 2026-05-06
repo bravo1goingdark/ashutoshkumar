@@ -1,6 +1,14 @@
-import type { Stat, AIProject } from '$lib/types';
+import type {
+	Stat,
+	AIProject,
+	Profile,
+	Hiring,
+	AiSection,
+	HowIBuild,
+	SiteSections
+} from '$lib/types';
 
-export const profile = {
+export const defaultProfile: Profile = {
 	name: 'Ashutosh Kumar',
 	handle: 'bravo1goingdark',
 	role: 'Backend & Systems Engineer',
@@ -12,6 +20,8 @@ export const profile = {
 	available: true,
 	availableDate: 'Immediately',
 	email: 'kumarashutosh34169@gmail.com',
+	photo: 'https://avatars.githubusercontent.com/u/70029422?v=4',
+	resumeUrl: '/ashutosh-kumar.pdf',
 	socials: {
 		github: 'https://github.com/bravo1goingdark',
 		linkedin: 'https://linkedin.com/in/bravo1goingdark',
@@ -19,35 +29,22 @@ export const profile = {
 		clairo: 'https://github.com/bravo1goingdark/clairo',
 		leetcode: 'https://leetcode.com/u/bravo1goingdark/',
 		mankind: 'https://github.com/themankindproject/'
+	},
+	seo: {
+		title: "Ashutosh Kumar — Backend Engineer · Available Immediately",
+		description:
+			"Backend & systems engineer building high-performance infrastructure in Rust and Go. MUJ CS '26, open to SDE-1 / Backend / Infrastructure roles."
 	}
-} as const;
+};
 
-// ── Stats band for the hero ───────────────────────────────
-export const stats: Stat[] = [
-	{
-		value: '8.61',
-		label: 'GPA',
-		detail: "MUJ CS '26 · Dean's List"
-	},
-	{
-		value: '80★',
-		label: 'OSS STARS',
-		detail: 'across all public repos'
-	},
-	{
-		value: '500+',
-		label: 'LEETCODE',
-		detail: 'Java · DSA'
-	},
-	{
-		value: '35% ↓',
-		label: 'API LATENCY',
-		detail: 'Bindisa internship'
-	}
+export const defaultStats: Stat[] = [
+	{ value: '8.61', label: 'GPA', detail: "MUJ CS '26 · Dean's List" },
+	{ value: '80★', label: 'OSS STARS', detail: 'across all public repos' },
+	{ value: '500+', label: 'LEETCODE', detail: 'Java · DSA' },
+	{ value: '35% ↓', label: 'API LATENCY', detail: 'Bindisa internship' }
 ];
 
-// ── What I'm looking for ──────────────────────────────────
-export const hiring = {
+export const defaultHiring: Hiring = {
 	status: 'Open to full-time roles. Available immediately.',
 	roles: [
 		'SDE-1 / Junior Backend Engineer',
@@ -66,8 +63,7 @@ export const hiring = {
 		'Pure frontend roles, AI research positions, or "full-stack" roles that are 80% UI.'
 };
 
-// ── AI stance ─────────────────────────────────────────────
-export const ai = {
+export const defaultAi: AiSection = {
 	heading: "I'm a systems engineer in an AI era — not an AI engineer. That distinction matters.",
 	paragraphs: [
 		"I use AI daily. Claude Code and Copilot have compressed my feedback loop — they handle the boilerplate so I stay focused on system design and tradeoffs. What I don't trust AI for: architecture decisions, correctness guarantees, or anything where the failure mode is silent.",
@@ -76,7 +72,7 @@ export const ai = {
 	]
 };
 
-export const aiProjects: AIProject[] = [
+export const defaultAiProjects: AIProject[] = [
 	{
 		name: 'DesignSight',
 		description:
@@ -99,3 +95,44 @@ export const aiProjects: AIProject[] = [
 		github: 'https://github.com/bravo1goingdark/FRQI-Quantum-Watermarking-On-NISQ-Hardware'
 	}
 ];
+
+export const defaultSections: SiteSections = {
+	work: { label: 'FLAGSHIP WORK', id: 'work', visible: true },
+	experience: { label: 'EXPERIENCE & EDUCATION', id: 'experience', visible: true },
+	stack: { label: 'BUILT WITH', id: 'stack', visible: true },
+	howIBuild: { label: 'HOW I BUILD', id: 'how-i-build', visible: true },
+	ai: { label: 'ON AI, 2026', id: 'ai', visible: true },
+	writing: { label: 'RECENT WRITING', id: 'writing', visible: true },
+	hiring: { label: 'FOR HIRING TEAMS', id: 'hiring', visible: true }
+};
+
+export const defaultHowIBuild: HowIBuild = {
+	heading: 'How I build',
+	principles: [
+		{
+			label: 'Benchmark first',
+			detail:
+				"I don't guess about performance — I measure. cargo bench, go test -bench, custom harnesses. If I can't reproduce it, I can't fix it."
+		},
+		{
+			label: 'Test at the boundary',
+			detail:
+				'Unit tests for pure logic, integration tests for IO boundaries (DB, network, filesystem). I test what would actually break in production.'
+		},
+		{
+			label: 'Profile before optimising',
+			detail:
+				"flamegraph, pprof, perf — I find the actual bottleneck before touching code. Most \"slow\" code is fast enough; the 3% that isn't is usually IO or allocation."
+		},
+		{
+			label: 'Design for failure',
+			detail:
+				'Everything fails eventually. I design retries with backoff, circuit breakers, graceful degradation, and explicit error types. Happy paths are easy — edge cases define quality.'
+		},
+		{
+			label: 'Ship small, iterate fast',
+			detail:
+				'I prefer small, reviewable PRs over monolithic feature branches. Fast feedback loops catch design mistakes early. If it takes a week to review, the PR is too big.'
+		}
+	]
+};

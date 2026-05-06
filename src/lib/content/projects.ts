@@ -1,7 +1,8 @@
 import type { Project } from '$lib/types';
 
-export const projects: Project[] = [
+export const defaultProjects: Project[] = [
 	{
+		slug: 'obol',
 		number: '01',
 		name: 'Obol',
 		year: '2026',
@@ -11,6 +12,8 @@ export const projects: Project[] = [
 		stack: ['TypeScript', 'SvelteKit', 'Cloudflare D1', 'Cloudflare KV', 'Lemon Squeezy', 'Resend'],
 		url: 'https://useobol.pages.dev',
 		featured: true,
+		sortOrder: 0,
+		image: '',
 		metrics: [
 			'Hourly KV-locked cron worker syncs usage incrementally across 4 providers — idempotent upserts prevent double-counting on concurrent deploys',
 			'daily_rollups pre-aggregation: overview renders from 30 rows, not thousands of usage_records',
@@ -21,6 +24,7 @@ export const projects: Project[] = [
 		]
 	},
 	{
+		slug: 'clairo',
 		number: '02',
 		name: 'Clairo',
 		year: '2025',
@@ -30,14 +34,19 @@ export const projects: Project[] = [
 		stack: ['TypeScript', 'AWS ECS', 'Kafka', 'FFmpeg', 'S3'],
 		github: 'https://github.com/bravo1goingdark/clairo',
 		featured: true,
+		sortOrder: 1,
+		image: '',
 		metrics: [
 			'Kafka topic partitioning for parallel multi-resolution transcoding — 360p, 720p, 1080p in one pass',
 			'ECS task auto-scaling tied to consumer lag — spins up workers on demand, idles at zero cost',
 			'S3 pre-signed URL workflow for secure upload ingestion and output delivery (no public buckets)',
-			'Fully async end-to-end: producer acknowledges immediately, consumers commit offsets — zero polling loops'
+			'Fully async end-to-end: producer acknowledges immediately, consumers commit offsets — zero polling loops',
+			'~2.3x faster than sequential transcoding on a 5-min 1080p source (parallel fan-out vs single-worker)',
+			'Consumer-lag-based autoscaling: 0 → N workers in <90s, scale-down to zero when queue drains'
 		]
 	},
 	{
+		slug: 'mailgrid',
 		number: '03',
 		name: 'Mailgrid',
 		year: '2025',
@@ -49,6 +58,8 @@ export const projects: Project[] = [
 		url: 'https://blipmq.dev/mailgrid',
 		stars: 26,
 		featured: true,
+		sortOrder: 2,
+		image: '',
 		caseStudy: '/writing/mailgrid-architecture',
 		metrics: [
 			'Worker-pool SMTP dispatch with connection reuse — 40% throughput gain over per-send dialing',
@@ -59,6 +70,7 @@ export const projects: Project[] = [
 		]
 	},
 	{
+		slug: 'ucfp',
 		number: '04',
 		name: 'UCFP',
 		year: '2025',
@@ -66,27 +78,41 @@ export const projects: Project[] = [
 		stack: ['Rust', 'MinHash + LSH', 'SimHash', 'pHash + DTW', 'redb'],
 		github: 'https://github.com/bravo1goingdark/ucfp',
 		url: 'https://bravo1goingdark.github.io/ucfp/',
-		stars: 6
+		stars: 6,
+		featured: false,
+		sortOrder: 3,
+		image: ''
 	},
 	{
+		slug: 'imgfprint',
 		number: '05',
 		name: 'imgfprint',
 		year: '2026',
 		tagline: 'High-performance image fingerprinting library — 159 downloads · 9 versions on crates.io.',
 		stack: ['Rust', 'crates.io', 'pHash', 'Rayon'],
 		github: 'https://github.com/themankindproject/imgfprint-rs',
-		stars: 12
+		url: 'https://crates.io/crates/imgfprint',
+		stars: 12,
+		featured: false,
+		sortOrder: 4,
+		image: ''
 	},
 	{
+		slug: 'fastarena',
 		number: '06',
 		name: 'fastarena',
 		year: '2026',
 		tagline: 'Zero-dependency bump-pointer arena allocator — RAII transactions, savepoints · 135 downloads on crates.io.',
 		stack: ['Rust', 'crates.io'],
 		github: 'https://github.com/themankindproject/fastarena-rs',
-		stars: 3
+		url: 'https://crates.io/crates/fastarena',
+		stars: 3,
+		featured: false,
+		sortOrder: 5,
+		image: ''
 	},
 	{
+		slug: 'blipmq',
 		number: '07',
 		name: 'BlipMQ',
 		year: '2026',
@@ -94,9 +120,16 @@ export const projects: Project[] = [
 		stack: ['Rust', 'Tokio', 'Custom TCP framing'],
 		github: 'https://github.com/bravo1goingdark/blipmq',
 		url: 'https://blipmq.dev',
-		stars: 22
+		stars: 22,
+		featured: false,
+		sortOrder: 6,
+		image: '',
+		caseStudy: '/writing/building-blipmq',
+		metrics: [
+			'Zero-allocation SPSC ring buffer with cache-line-aligned head/tail — 3x throughput vs naive atomic queue on 16-core',
+			'Custom binary TCP framing protocol — 80% lower frame parse latency vs text-based protocols',
+			'Explicit backpressure via QueueFull errors — no hidden buffering, no OOM under producer flood',
+			'MPSC → per-subscriber SPSC fan-out — contention-free consumer path, each subscriber gets its own exclusive queue'
+		]
 	}
 ];
-
-export const featuredProjects = projects.filter((p) => p.featured);
-export const otherProjects = projects.filter((p) => !p.featured);

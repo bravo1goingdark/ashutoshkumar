@@ -1,6 +1,6 @@
 import type { SkillTier } from '$lib/types';
 
-export const skillTiers: SkillTier[] = [
+export const defaultSkillTiers: SkillTier[] = [
 	{
 		label: 'Production',
 		note: 'shipped real work, can interview on it',
@@ -42,7 +42,7 @@ export const skillTiers: SkillTier[] = [
 	}
 ];
 
-export const achievements = [
+export const defaultAchievements: string[] = [
 	'Solved 500+ DSA problems on LeetCode (Java)',
 	"Dean's List — 6th semester, highest GPA",
 	'Founded @themankindproject — Rust OSS org building systems primitives; imgfprint (159 downloads, 9 versions) and fastarena (135 downloads, 4 versions) published on crates.io',
