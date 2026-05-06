@@ -433,7 +433,9 @@
 	}
 
 	function openEditProject(p: Project) {
-		projectDraft = structuredClone(p);
+		// $state.snapshot strips Svelte 5's reactive proxy so the draft is a plain
+		// object — structuredClone errors on the proxy with DataCloneError.
+		projectDraft = $state.snapshot(p) as Project;
 		editingProjectOriginalSlug = p.slug;
 		projectSaveMsg = '';
 		projectView = 'edit';
@@ -474,6 +476,29 @@
 		await fetch(`/api/admin/projects/${slug}`, { method: 'DELETE' });
 		projectsEdit = projectsEdit.filter((p) => p.slug !== slug);
 		projectDeleteConfirmSlug = null;
+	}
+
+	let seedingDefaults = $state(false);
+	let seedMsg = $state('');
+
+	async function restoreDefaultProjects() {
+		seedingDefaults = true;
+		seedMsg = '';
+		try {
+			const res = await fetch('/api/admin/projects/seed', { method: 'POST' });
+			if (!res.ok) {
+				const body = (await res.json().catch(() => ({}))) as ApiError;
+				seedMsg = `Error: ${body.error ?? res.status}`;
+				return;
+			}
+			const body = (await res.json()) as { inserted: number; skipped: number };
+			seedMsg = `Restored ${body.inserted} (${body.skipped} already present).`;
+			const refreshed = (await fetch('/api/admin/projects').then((r) => r.json())) as Project[];
+			projectsEdit = refreshed;
+		} finally {
+			seedingDefaults = false;
+			setTimeout(() => (seedMsg = ''), 4000);
+		}
 	}
 
 	async function moveProject(idx: number, dir: -1 | 1) {
@@ -1358,9 +1383,26 @@
 		{:else if topTab === 'projects'}
 			{#if projectView === 'list'}
 				<div class="mt-8 sm:mt-10">
-					<div class="mb-4 flex items-baseline justify-between">
+					<div class="mb-4 flex flex-wrap items-baseline justify-between gap-3">
 						<h2 class="serif text-[20px] sm:text-[24px]" style="color: var(--ink);">Projects</h2>
-						<button onclick={openNewProject} class="btn btn-primary">+ new project</button>
+						<div class="flex flex-wrap items-center gap-3">
+							{#if seedMsg}
+								<span
+									class="mono text-[11px]"
+									style="color: {seedMsg.startsWith('Error') ? '#ef4444' : 'var(--accent)'};"
+									>{seedMsg}</span
+								>
+							{/if}
+							<button
+								onclick={restoreDefaultProjects}
+								disabled={seedingDefaults}
+								class="mono px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] disabled:opacity-40"
+								style="color: var(--ink-muted); border: 1px solid var(--border-strong);"
+								title="Add any missing default projects (won't overwrite existing rows)">
+								{seedingDefaults ? 'restoring…' : 'restore defaults'}
+							</button>
+							<button onclick={openNewProject} class="btn btn-primary">+ new project</button>
+						</div>
 					</div>
 					{#if projectsEdit.length === 0}
 						<p class="py-8 text-[14px]" style="color: var(--ink-muted);">No projects yet.</p>
@@ -1368,78 +1410,91 @@
 						<div>
 							{#each projectsEdit as project, idx (project.slug)}
 								<div
-									class="flex items-center gap-3 border-t -mx-3 px-3 py-3 sm:-mx-4 sm:px-4 sm:gap-4"
+									class="row-hover flex items-center gap-3 border-t -mx-3 px-3 py-3 sm:-mx-4 sm:px-4 sm:gap-4"
 									style="border-color: var(--border);"
 								>
-									<div
-										class="shrink-0 overflow-hidden rounded-sm border"
-										style="border-color: var(--border); width: 56px; height: 56px;"
+									<button
+										type="button"
+										onclick={() => openEditProject(project)}
+										class="flex min-w-0 flex-1 items-center gap-3 text-left sm:gap-4"
+										title="Edit {project.name}"
 									>
-										{#if project.image}
-											<img src={project.image} alt={project.name} class="h-full w-full object-cover" />
-										{:else}
-											<div
-												class="flex h-full w-full items-center justify-center"
-												style="background: var(--bg-subtle); color: var(--ink-faint);"
-											>
-												<span class="mono text-[10px]">{project.number}</span>
-											</div>
-										{/if}
-									</div>
-									<div class="min-w-0 flex-1">
-										<p
-											class="serif truncate text-[15px] leading-tight sm:text-[17px]"
-											style="color: var(--ink);"
+										<div
+											class="shrink-0 overflow-hidden rounded-sm border"
+											style="border-color: var(--border); width: 56px; height: 56px;"
 										>
-											{project.name}
-										</p>
-										<p class="mono mt-0.5 text-[10px]" style="color: var(--ink-faint);">
-											{project.year} ·
-											<span style="color: {project.featured ? 'var(--accent)' : 'var(--ink-faint)'};"
-												>{project.featured ? 'flagship' : 'also-built'}</span
+											{#if project.image}
+												<img
+													src={project.image}
+													alt={project.name}
+													class="h-full w-full object-cover"
+												/>
+											{:else}
+												<div
+													class="flex h-full w-full items-center justify-center"
+													style="background: var(--bg-subtle); color: var(--ink-faint);"
+												>
+													<span class="mono text-[10px]">{project.number}</span>
+												</div>
+											{/if}
+										</div>
+										<div class="min-w-0 flex-1">
+											<p
+												class="serif truncate text-[15px] leading-tight sm:text-[17px]"
+												style="color: var(--ink);"
 											>
-										</p>
-									</div>
+												{project.name}
+											</p>
+											<p class="mono mt-0.5 text-[10px]" style="color: var(--ink-faint);">
+												{project.year} ·
+												<span style="color: {project.featured ? 'var(--accent)' : 'var(--ink-faint)'};"
+													>{project.featured ? 'flagship' : 'also-built'}</span
+												>
+											</p>
+										</div>
+									</button>
 									<div
-										class="mono flex shrink-0 items-center gap-1 text-[10px] uppercase tracking-[0.1em] sm:gap-2"
+										class="mono flex shrink-0 items-center gap-1 text-[12px] uppercase tracking-[0.1em] sm:gap-2"
 									>
 										<button
+											type="button"
 											onclick={() => moveProject(idx, -1)}
 											disabled={idx === 0}
-											class="px-2 py-1 disabled:opacity-30"
+											aria-label="Move up"
+											class="flex h-9 w-9 items-center justify-center disabled:opacity-30"
 											style="color: var(--ink-muted); border: 1px solid var(--border-strong);"
 											>↑</button
 										>
 										<button
+											type="button"
 											onclick={() => moveProject(idx, 1)}
 											disabled={idx === projectsEdit.length - 1}
-											class="px-2 py-1 disabled:opacity-30"
+											aria-label="Move down"
+											class="flex h-9 w-9 items-center justify-center disabled:opacity-30"
 											style="color: var(--ink-muted); border: 1px solid var(--border-strong);"
 											>↓</button
 										>
-										<button
-											onclick={() => openEditProject(project)}
-											class="px-2 py-1 transition-opacity hover:opacity-60"
-											style="color: var(--ink-muted); border: 1px solid var(--border-strong);"
-											>edit</button
-										>
 										{#if projectDeleteConfirmSlug === project.slug}
 											<button
+												type="button"
 												onclick={() => deleteProject(project.slug)}
-												class="px-2 py-1 font-medium"
+												class="flex h-9 items-center px-3 font-medium"
 												style="color: #ef4444; border: 1px solid var(--border-strong);"
 												>confirm</button
 											>
 											<button
+												type="button"
 												onclick={() => (projectDeleteConfirmSlug = null)}
-												class="px-2 py-1"
+												class="flex h-9 items-center px-3"
 												style="color: var(--ink-faint); border: 1px solid var(--border-strong);"
 												>cancel</button
 											>
 										{:else}
 											<button
+												type="button"
 												onclick={() => (projectDeleteConfirmSlug = project.slug)}
-												class="px-2 py-1 transition-opacity hover:opacity-60"
+												aria-label="Delete project"
+												class="flex h-9 w-9 items-center justify-center text-[16px] transition-opacity hover:opacity-60"
 												style="color: var(--ink-faint); border: 1px solid var(--border-strong);"
 												>×</button
 											>
@@ -1449,6 +1504,9 @@
 							{/each}
 							<div class="border-t" style="border-color: var(--border);"></div>
 						</div>
+						<p class="mono mt-3 text-[10px]" style="color: var(--ink-faint);">
+							tap a row to edit · use ↑↓ to reorder · × to delete
+						</p>
 					{/if}
 				</div>
 			{:else}

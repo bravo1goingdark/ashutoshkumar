@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { checkAuth } from '$lib/server/auth';
 import { getProject, upsertProject, deleteProject } from '$lib/server/db';
+import { ensureProjectsSeeded } from '$lib/server/seed';
 import { validateProject, ValidationError } from '$lib/server/validators';
 import type { RequestHandler } from './$types';
 
@@ -22,6 +23,7 @@ export const PUT: RequestHandler = async ({ request, params, cookies, platform }
 	try {
 		const body = await request.json();
 		const project = validateProject(body);
+		await ensureProjectsSeeded(platform.env.DB, project.slug);
 		await upsertProject(platform.env.DB, project, params.slug);
 		return json({ ok: true, slug: project.slug });
 	} catch (e) {

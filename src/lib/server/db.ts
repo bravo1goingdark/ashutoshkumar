@@ -352,3 +352,44 @@ export async function reorderProjects(db: D1Database, slugs: string[]): Promise<
 	);
 	await db.batch(stmts);
 }
+
+// Insert each project only if its slug doesn't already exist. Used to seed the
+// projects table from TS defaults the first time without clobbering anything
+// the admin has customised since.
+export async function seedProjectsIfMissing(
+	db: D1Database,
+	projects: Project[]
+): Promise<{ inserted: number; skipped: number }> {
+	let inserted = 0;
+	let skipped = 0;
+	for (const p of projects) {
+		const result = await db
+			.prepare(
+				`INSERT OR IGNORE INTO projects
+           (slug, number, name, year, tagline, description, stack, metrics,
+            image, github, url, case_study, stars, featured, sort_order, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+			)
+			.bind(
+				p.slug,
+				p.number ?? '',
+				p.name,
+				p.year ?? '',
+				p.tagline ?? '',
+				p.description ?? '',
+				JSON.stringify(p.stack ?? []),
+				JSON.stringify(p.metrics ?? []),
+				p.image ?? '',
+				p.github ?? '',
+				p.url ?? '',
+				p.caseStudy ?? '',
+				p.stars ?? 0,
+				p.featured ? 1 : 0,
+				p.sortOrder ?? 0
+			)
+			.run();
+		if (result.meta?.changes ?? 0 > 0) inserted++;
+		else skipped++;
+	}
+	return { inserted, skipped };
+}
