@@ -28,10 +28,10 @@
 
 		<!-- Name + Profile photo -->
 		<div
-			class="animate-in animate-in-d1 mt-8 flex flex-col items-start gap-5 sm:mt-10 sm:flex-row sm:items-start sm:gap-8"
+			class="animate-in animate-in-d1 mt-6 flex flex-row items-start gap-3 sm:mt-10 sm:gap-8"
 		>
 			<h1
-				class="serif text-[44px] leading-[0.95] break-words sm:text-[72px] lg:text-[92px]"
+				class="serif min-w-0 flex-1 text-[clamp(32px,10vw,44px)] leading-[0.95] break-words sm:text-[72px] lg:text-[92px]"
 				style="color: var(--ink);"
 			>
 				{#if nameParts.length > 1}
@@ -43,7 +43,7 @@
 			<img
 				src={photoSrc}
 				alt={profile.name}
-				class="h-24 w-24 shrink-0 rounded-full border-2 sm:h-40 sm:w-40 sm:border-4 lg:h-48 lg:w-48"
+				class="h-20 w-20 shrink-0 rounded-full border-2 sm:h-40 sm:w-40 sm:border-4 lg:h-48 lg:w-48"
 				style="border-color: var(--border-strong);"
 				loading="eager"
 				fetchpriority="high"

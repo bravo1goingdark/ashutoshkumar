@@ -90,6 +90,7 @@ body {
 	min-height: 100dvh;
 	background: var(--bg);
 	color: var(--ink);
+	overflow-x: clip;
 }
 
 /* Grain texture — warmth without weight */
