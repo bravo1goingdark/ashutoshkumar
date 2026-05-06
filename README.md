@@ -32,7 +32,36 @@ static/
 | **Styles** | Tailwind CSS v4 — no config file, `@theme {}` only |
 | **Blog** | mdsvex — write `.svx`, get Svelte components inside markdown |
 | **Deploy** | Cloudflare Pages · `adapter-cloudflare` |
+| **Database** | Cloudflare D1 (SQLite) — parameterized queries, migration-based schema |
+| **Storage** | Cloudflare R2 — image uploads for blog posts |
 | **OG image** | Generated from SVG at build time via `sharp` |
+
+## data layer
+
+Posts live in Cloudflare D1 (SQLite on the edge). Schema is migration-based — see `migrations/0001_posts.sql`.
+
+```
+posts table:
+  slug        TEXT PRIMARY KEY
+  title       TEXT NOT NULL
+  description TEXT
+  date        TEXT (ISO date, indexed with published)
+  tags        TEXT (JSON array)
+  content     TEXT
+  published   INTEGER (0=draft, 1=published)
+  created_at  TEXT
+  updated_at  TEXT
+
+index: idx_posts_published_date (published, date DESC)
+```
+
+Query patterns:
+- **listPosts** — `WHERE published = 1 ORDER BY date DESC LIMIT ?` for homepage/writing index
+- **getPost** — `WHERE slug = ?` for individual post pages
+- **upsertPost** — `INSERT ... ON CONFLICT(slug) DO UPDATE` for create/update in one shot
+- All queries use parameterized bindings (`db.prepare(q).bind(...)`) — no string interpolation
+
+Admin API (`/api/admin/*`) is protected by a `WRITE_KEY` env var + httpOnly cookie session.
 
 ## local dev
 
