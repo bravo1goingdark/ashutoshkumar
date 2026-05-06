@@ -5,7 +5,7 @@
  *   npm run db:seed
  */
 
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, writeFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -18,16 +18,15 @@ function parseFrontmatter(src) {
 	if (!match) return null;
 	const fm = {};
 	for (const line of match[1].split('\n')) {
-		const [key, ...rest] = line.split(':');
-		if (!key) continue;
-		let val = rest.join(':').trim();
-		// strip quotes
+		const colonIdx = line.indexOf(':');
+		if (colonIdx === -1) continue;
+		const key = line.slice(0, colonIdx).trim();
+		let val = line.slice(colonIdx + 1).trim();
 		val = val.replace(/^["']|["']$/g, '');
-		// handle arrays like ["a", "b"]
 		if (val.startsWith('[')) {
-			fm[key.trim()] = JSON.parse(val.replace(/'/g, '"'));
+			fm[key] = JSON.parse(val.replace(/'/g, '"'));
 		} else {
-			fm[key.trim()] = val;
+			fm[key] = val;
 		}
 	}
 	return { meta: fm, content: match[2].trim() };
@@ -45,23 +44,14 @@ for (const file of files) {
 	}
 	const { meta, content } = parsed;
 	const tags = JSON.stringify(Array.isArray(meta.tags) ? meta.tags : []);
-	// Escape single quotes for SQL
-	const esc = (s) => String(s ?? '').replace(/'/g, "''");
 
-	const sql = `INSERT OR IGNORE INTO posts (slug, title, description, date, tags, content, published)
-VALUES ('${esc(slug)}', '${esc(meta.title)}', '${esc(meta.description)}', '${esc(meta.date)}', '${esc(tags)}', '${esc(content)}', 1);`;
+	// Use parameterized query via wrangler's --command flag
+	const cmd = `npx wrangler@latest d1 execute ashutosh-blog --remote --command="INSERT OR IGNORE INTO posts (slug, title, description, date, tags, content, published) VALUES ('${slug.replace(/'/g, "''")}', '${(meta.title || '').replace(/'/g, "''")}', '${(meta.description || '').replace(/'/g, "''")}', '${(meta.date || '').replace(/'/g, "''")}', '${tags.replace(/'/g, "''")}', '${content.replace(/'/g, "''")}', 1);"`;
 
-	const tmpFile = join(root, '.seed-tmp.sql');
-	import('fs').then(({ writeFileSync, unlinkSync }) => {
-		writeFileSync(tmpFile, sql, 'utf8');
-		try {
-			execSync(`npx wrangler@latest d1 execute ashutosh-blog --remote --file="${tmpFile}"`, {
-				stdio: 'inherit',
-				cwd: root
-			});
-			console.log(`✓ seeded: ${slug}`);
-		} finally {
-			unlinkSync(tmpFile);
-		}
-	});
+	try {
+		execSync(cmd, { stdio: 'inherit', cwd: root });
+		console.log(`✓ seeded: ${slug}`);
+	} catch (err) {
+		console.error(`✗ failed: ${slug}`);
+	}
 }
