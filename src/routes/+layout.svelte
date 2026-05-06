@@ -3,85 +3,88 @@
 	import Nav from '$lib/components/Nav.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 
-	let { children } = $props();
+	let { data, children } = $props();
 
 	const SITE_URL = 'https://ashutoshk.pages.dev';
 	const OG_IMAGE = `${SITE_URL}/og.png`;
-	const TITLE = 'Ashutosh Kumar — Backend & Systems Engineer';
-	const DESCRIPTION =
-		'Backend & Systems engineer building high-performance infrastructure in Rust and Go. Obol, Clairo, Mailgrid. MUJ CS \'26. Available immediately.';
+
+	const title = $derived(data.site.profile.seo.title || `${data.site.profile.name} — ${data.site.profile.role}`);
+	const description = $derived(data.site.profile.seo.description);
+	const author = $derived(data.site.profile.name);
+
+	const sameAs = $derived(
+		Object.values(data.site.profile.socials).filter((u): u is string => typeof u === 'string' && u.length > 0)
+	);
+
+	const knowsAbout = $derived(
+		Array.from(
+			new Set(
+				data.site.skillTiers
+					.flatMap((t) => t.items)
+					.concat(data.site.hiring.domains.flatMap((d) => d.split(/[,·]/).map((s) => s.trim())))
+					.filter(Boolean)
+			)
+		)
+	);
+
+	const structuredData = $derived(
+		JSON.stringify({
+			'@context': 'https://schema.org',
+			'@type': 'Person',
+			name: data.site.profile.name,
+			url: SITE_URL,
+			image: data.site.profile.photo || OG_IMAGE,
+			jobTitle: data.site.profile.role,
+			description,
+			alumniOf: data.site.education.institution
+				? {
+						'@type': 'CollegeOrUniversity',
+						name: data.site.education.institution
+					}
+				: undefined,
+			knowsAbout,
+			sameAs
+		})
+	);
 </script>
 
 <svelte:head>
-	<title>{TITLE}</title>
-	<meta name="description" content={DESCRIPTION} />
-	<meta name="author" content="Ashutosh Kumar" />
-	<meta
-		name="keywords"
-		content="Ashutosh Kumar, backend engineer, systems engineer, Rust, Go, TypeScript, SvelteKit, distributed systems, MUJ, bravo1goingdark, portfolio"
-	/>
+	<title>{title}</title>
+	<meta name="description" content={description} />
+	<meta name="author" content={author} />
 	<link rel="canonical" href={SITE_URL} />
 
-	<!-- Open Graph — WhatsApp, LinkedIn, Facebook, Telegram -->
+	<!-- Open Graph -->
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content={SITE_URL} />
-	<meta property="og:site_name" content="Ashutosh Kumar" />
+	<meta property="og:site_name" content={author} />
 	<meta property="og:locale" content="en_US" />
-	<meta property="og:title" content={TITLE} />
-	<meta property="og:description" content={DESCRIPTION} />
+	<meta property="og:title" content={title} />
+	<meta property="og:description" content={description} />
 	<meta property="og:image" content={OG_IMAGE} />
 	<meta property="og:image:secure_url" content={OG_IMAGE} />
 	<meta property="og:image:type" content="image/png" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content="Ashutosh Kumar — Backend & Systems Engineer" />
+	<meta property="og:image:alt" content={`${author} — ${data.site.profile.role}`} />
 
-	<!-- Twitter / X Card — shows large banner image -->
+	<!-- Twitter / X Card -->
 	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:site" content="@bravo1goingdark" />
-	<meta name="twitter:creator" content="@bravo1goingdark" />
-	<meta name="twitter:title" content={TITLE} />
-	<meta name="twitter:description" content={DESCRIPTION} />
+	{#if data.site.profile.socials.x}
+		<meta name="twitter:site" content={'@' + data.site.profile.handle} />
+		<meta name="twitter:creator" content={'@' + data.site.profile.handle} />
+	{/if}
+	<meta name="twitter:title" content={title} />
+	<meta name="twitter:description" content={description} />
 	<meta name="twitter:image" content={OG_IMAGE} />
-	<meta name="twitter:image:alt" content="Ashutosh Kumar — Backend & Systems Engineer" />
+	<meta name="twitter:image:alt" content={`${author} — ${data.site.profile.role}`} />
 
 	<!-- JSON-LD structured data -->
-	{@html `<script type="application/ld+json">${JSON.stringify({
-		'@context': 'https://schema.org',
-		'@type': 'Person',
-		name: 'Ashutosh Kumar',
-		url: SITE_URL,
-		image: OG_IMAGE,
-		jobTitle: 'Backend & Systems Engineer',
-		description: DESCRIPTION,
-		nationality: 'Indian',
-		alumniOf: {
-			'@type': 'CollegeOrUniversity',
-			name: 'Manipal University Jaipur',
-			url: 'https://jaipur.manipal.edu'
-		},
-		knowsAbout: [
-			'Rust',
-			'Go',
-			'TypeScript',
-			'Distributed Systems',
-			'Backend Engineering',
-			'Message Queues',
-			'Cloud Infrastructure',
-			'SvelteKit',
-			'Cloudflare Workers'
-		],
-		sameAs: [
-			'https://github.com/bravo1goingdark',
-			'https://linkedin.com/in/bravo1goingdark',
-			'https://x.com/bravo1goingdark',
-			'https://leetcode.com/u/bravo1goingdark/'
-		]
-	})}</script>`}
+	{@html `<script type="application/ld+json">${structuredData}</` + `script>`}
 </svelte:head>
 
-<Nav />
+<Nav profile={data.site.profile} sections={data.site.sections} />
 <main>
 	{@render children()}
 </main>
-<Footer />
+<Footer profile={data.site.profile} />
