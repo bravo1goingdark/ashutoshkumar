@@ -46,7 +46,7 @@ export const GET: RequestHandler = async ({ platform }) => {
 	return new Response(xml.trim(), {
 		headers: {
 			'Content-Type': 'application/rss+xml; charset=utf-8',
-			'Cache-Control': 'max-age=3600'
+			'Cache-Control': 'public, max-age=3600, s-maxage=3600'
 		}
 	});
 };

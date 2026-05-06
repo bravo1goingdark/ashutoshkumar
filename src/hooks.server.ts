@@ -9,7 +9,11 @@ const SECURITY_HEADERS = {
 };
 
 export const handle: Handle = async ({ event, resolve }) => {
+	const start = performance.now();
 	const response = await resolve(event);
+	const elapsed = (performance.now() - start).toFixed(1);
+
+	response.headers.set('X-Response-Time', `${elapsed}ms`);
 
 	for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
 		response.headers.set(key, value);

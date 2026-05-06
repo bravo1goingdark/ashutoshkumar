@@ -11,7 +11,7 @@ export const GET: RequestHandler = async ({ params, platform }) => {
 
 	const headers = new Headers();
 	headers.set('Content-Type', obj.httpMetadata?.contentType ?? 'application/octet-stream');
-	headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+	headers.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
 	headers.set('ETag', obj.httpEtag);
 
 	return new Response(obj.body, { headers });
