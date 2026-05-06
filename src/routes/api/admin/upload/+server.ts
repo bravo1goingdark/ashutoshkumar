@@ -3,7 +3,15 @@ import { checkAuth } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml']);
+const ALLOWED = new Set([
+	'image/jpeg',
+	'image/png',
+	'image/gif',
+	'image/webp',
+	'image/avif',
+	'image/svg+xml',
+	'application/pdf'
+]);
 
 export const POST: RequestHandler = async ({ request, cookies, platform }) => {
 	if (!checkAuth(cookies, platform?.env?.WRITE_KEY)) {
@@ -17,7 +25,7 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
 	const file = form.get('file') as File | null;
 	if (!file || !file.name) throw error(400, 'No file');
 	if (file.size > MAX_BYTES) throw error(413, 'Max file size is 10 MB');
-	if (!ALLOWED.has(file.type)) throw error(415, 'Unsupported image type');
+	if (!ALLOWED.has(file.type)) throw error(415, 'Unsupported file type');
 
 	const safe = file.name
 		.toLowerCase()
