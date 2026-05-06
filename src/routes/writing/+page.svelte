@@ -4,6 +4,37 @@
 	import { animateOnScroll } from '$lib/actions/animateOnScroll';
 
 	let { data } = $props();
+
+	interface SeriesPost {
+		slug: string;
+		title: string;
+		description: string;
+		date: string;
+		tags: string[];
+		readTime?: string;
+		series: string;
+		seriesOrder: number;
+	}
+
+	const posts = $derived(data.posts as SeriesPost[]);
+	const series = $derived(data.series as string[]);
+
+	const standalonePosts = $derived(posts.filter((p) => !p.series));
+	const seriesMap = $derived(() => {
+		const map: Record<string, SeriesPost[]> = {};
+		for (const p of posts) {
+			if (p.series) {
+				if (!map[p.series]) map[p.series] = [];
+				map[p.series].push(p);
+			}
+		}
+		for (const key of Object.keys(map)) {
+			map[key].sort((a, b) => (a.seriesOrder || 0) - (b.seriesOrder || 0) || new Date(a.date).getTime() - new Date(b.date).getTime());
+		}
+		return map;
+	});
+
+	const seriesOrder = $derived(series.filter((s) => seriesMap()[s]?.length));
 </script>
 
 <svelte:head>
@@ -43,8 +74,8 @@
 		read but couldn't find.
 	</p>
 
-	{#if data.posts.length > 0}
-		{@const allTags = [...new Set(data.posts.flatMap((p) => p.tags))].sort()}
+	{#if posts.length > 0}
+		{@const allTags = [...new Set(posts.flatMap((p) => p.tags))].sort()}
 		{#if allTags.length > 0}
 			<div class="mt-10 flex flex-wrap gap-x-3 gap-y-1" use:animateOnScroll={{ delay: 160 }}>
 				{#each allTags as tag}
@@ -60,15 +91,54 @@
 	{/if}
 
 	<div class="mt-20" use:animateOnScroll={{ delay: 100 }}>
-		{#if data.posts.length === 0}
+		{#if posts.length === 0}
 			<p class="py-12 text-sm" style="color: var(--ink-muted);">Nothing yet. Soon.</p>
 		{:else}
-			<ul class="list-none">
-				{#each data.posts as post}
-					<li><PostCard {post} /></li>
-				{/each}
-			</ul>
-			<div class="border-t" style="border-color: var(--border);"></div>
+			<!-- Series sections -->
+			{#each seriesOrder as seriesName}
+				{@const seriesPosts = seriesMap()[seriesName]}
+				{#if seriesPosts.length > 0}
+					<div class="mb-16">
+						<div class="mb-6 flex items-baseline gap-3">
+							<span
+								class="mono text-[10px] uppercase tracking-[0.22em]"
+								style="color: var(--ink);"
+							>
+								SERIES: {seriesName.toUpperCase()}
+							</span>
+							<span class="mono text-[10px]" style="color: var(--ink-faint);">
+								— {seriesPosts.length} {seriesPosts.length === 1 ? 'part' : 'parts'}
+							</span>
+						</div>
+						<ul class="list-none">
+							{#each seriesPosts as post}
+								<li><PostCard {post} /></li>
+							{/each}
+						</ul>
+						<div class="border-t" style="border-color: var(--border);"></div>
+					</div>
+				{/if}
+			{/each}
+
+			<!-- Standalone posts -->
+			{#if standalonePosts.length > 0}
+				{#if seriesOrder.length > 0}
+					<div class="mb-8 flex items-baseline gap-3">
+						<span
+							class="mono text-[10px] uppercase tracking-[0.22em]"
+							style="color: var(--ink);"
+						>
+							STANDALONE
+						</span>
+					</div>
+				{/if}
+				<ul class="list-none">
+					{#each standalonePosts as post}
+						<li><PostCard {post} /></li>
+					{/each}
+				</ul>
+				<div class="border-t" style="border-color: var(--border);"></div>
+			{/if}
 		{/if}
 	</div>
 </section>

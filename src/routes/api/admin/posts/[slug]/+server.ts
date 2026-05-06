@@ -33,14 +33,16 @@ export const PUT: RequestHandler = async ({ request, params, cookies, platform }
 		tags: string[];
 		content: string;
 		published: boolean;
+		series?: string;
+		seriesOrder?: number;
 	};
 
-	// allow slug rename: delete old, insert new
+	// allow slug rename: pass oldSlug for atomic delete-before-insert
 	if (body.slug !== params.slug) {
-		await deletePost(platform.env.DB, params.slug);
+		await upsertPost(platform.env.DB, body, params.slug);
+	} else {
+		await upsertPost(platform.env.DB, body);
 	}
-
-	await upsertPost(platform.env.DB, body);
 	return json({ ok: true, slug: body.slug });
 };
 

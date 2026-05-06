@@ -1,7 +1,12 @@
 <script lang="ts">
 	import type { Post } from '$lib/types';
 
-	let { post }: { post: Post } = $props();
+	interface ExtendedPost extends Post {
+		series?: string;
+		seriesOrder?: number;
+	}
+
+	let { post }: { post: ExtendedPost } = $props();
 
 	function formatDate(dateStr: string) {
 		return new Date(dateStr).toLocaleDateString('en-US', {
@@ -33,6 +38,21 @@
 					{post.description}
 				</p>
 				<div class="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+					{#if post.series}
+						<span
+							class="mono text-[10px] uppercase tracking-[0.15em]"
+							style="color: var(--ink-muted);"
+						>
+							{post.series} · part {post.seriesOrder ?? 1}
+						</span>
+						<span
+							class="text-[10px]"
+							style="color: var(--ink-faint);"
+							aria-hidden="true"
+						>
+							·
+						</span>
+					{/if}
 					{#each post.tags as tag, i}
 						<span
 							class="mono text-[10px] uppercase tracking-[0.15em]"

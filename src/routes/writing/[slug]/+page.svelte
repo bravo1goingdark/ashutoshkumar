@@ -2,6 +2,7 @@
 	let { data } = $props();
 	let post = $derived(data.post);
 	let contentHtml = $derived(data.contentHtml);
+	let seriesPosts = $derived(data.seriesPosts as { slug: string; title: string; seriesOrder: number }[]);
 
 	function formatDate(dateStr: string) {
 		return new Date(dateStr).toLocaleDateString('en-US', {
@@ -10,6 +11,12 @@
 			day: 'numeric'
 		});
 	}
+
+	const currentIndex = $derived(
+		seriesPosts.findIndex((p) => p.slug === post.slug)
+	);
+	const prevPost = $derived(currentIndex > 0 ? seriesPosts[currentIndex - 1] : null);
+	const nextPost = $derived(currentIndex >= 0 && currentIndex < seriesPosts.length - 1 ? seriesPosts[currentIndex + 1] : null);
 </script>
 
 <svelte:head>
@@ -31,8 +38,45 @@
 		← writing
 	</a>
 
+	<!-- Series banner -->
+	{#if post.series && seriesPosts.length > 1}
+		<div class="mt-8 border-l-2 pl-5 py-4" style="border-color: var(--border-strong);">
+			<span
+				class="mono text-[10px] uppercase tracking-[0.22em]"
+				style="color: var(--ink);"
+			>
+				SERIES: {post.series.toUpperCase()}
+			</span>
+			<p class="mt-2 text-[14px]" style="color: var(--ink-muted);">
+				Part {currentIndex + 1} of {seriesPosts.length}
+			</p>
+			{#if prevPost || nextPost}
+				<nav class="mt-3 flex flex-wrap gap-4 text-[13px]">
+					{#if prevPost}
+						<a
+							href="/writing/{prevPost.slug}"
+							class="mono link-reveal"
+							style="color: var(--ink-muted);"
+						>
+							← {prevPost.title}
+						</a>
+					{/if}
+					{#if nextPost}
+						<a
+							href="/writing/{nextPost.slug}"
+							class="mono link-reveal"
+							style="color: var(--ink-muted);"
+						>
+							{nextPost.title} →
+						</a>
+					{/if}
+				</nav>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Header -->
-	<header class="mt-14 mb-14">
+	<header class="mt-8 mb-14">
 		<h1
 			class="serif text-[40px] leading-[1.05] tracking-tight sm:text-[52px]"
 			style="color: var(--ink);"

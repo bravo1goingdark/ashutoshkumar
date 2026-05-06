@@ -34,6 +34,8 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
 		tags: string[];
 		content: string;
 		published: boolean;
+		series?: string;
+		seriesOrder?: number;
 	};
 
 	if (!body.slug || !body.title || !body.date) {

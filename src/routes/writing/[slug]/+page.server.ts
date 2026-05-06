@@ -1,11 +1,11 @@
 import { error } from '@sveltejs/kit';
 import { marked } from 'marked';
-import { getPost } from '$lib/server/db';
+import { getPost, getSeriesPosts } from '$lib/server/db';
 import type { PageServerLoad } from './$types';
 
 export const prerender = false;
 
-export const load: PageServerLoad = async ({ params, platform }) => {
+export const load: PageServerLoad = async ({ params, platform, setHeaders }) => {
 	if (!platform?.env?.DB) {
 		throw error(404, 'Not found');
 	}
@@ -15,7 +15,17 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 		throw error(404, 'Post not found');
 	}
 
-	const contentHtml = String(marked.parse(post.content));
+	const contentHtml = String(await marked.parse(post.content));
+
+	let seriesPosts: { slug: string; title: string; seriesOrder: number }[] = [];
+	if (post.series) {
+		const siblings = await getSeriesPosts(platform.env.DB, post.series, true);
+		seriesPosts = siblings.map((p) => ({ slug: p.slug, title: p.title, seriesOrder: p.seriesOrder }));
+	}
+
+	setHeaders({
+		'Cache-Control': 'public, max-age=3600, s-maxage=3600'
+	});
 
 	return {
 		post: {
@@ -24,8 +34,11 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 			description: post.description,
 			date: post.date,
 			tags: post.tags,
-			readTime: post.readTime
+			readTime: post.readTime,
+			series: post.series,
+			seriesOrder: post.seriesOrder
 		},
-		contentHtml
+		contentHtml,
+		seriesPosts
 	};
 };
