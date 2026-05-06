@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ platform, setHeaders }) => {
 	}
 	const posts = await listPosts(platform.env.DB, true, 3);
 	setHeaders({
-		'Cache-Control': 'public, max-age=300, s-maxage=300'
+		'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=600'
 	});
 	return { recentPosts: posts };
 };
