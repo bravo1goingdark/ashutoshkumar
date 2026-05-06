@@ -75,6 +75,30 @@
 		window.location.reload();
 	}
 
+	// ── Clear cache ─────────────────────────────────────────
+	let cacheClearing = $state(false);
+	let cacheMsg = $state('');
+
+	async function clearCache() {
+		cacheClearing = true;
+		cacheMsg = '';
+		try {
+			const res = await fetch('/api/admin/cache/clear', { method: 'POST' });
+			if (!res.ok) {
+				const body = (await res.json().catch(() => ({}))) as ApiError;
+				cacheMsg = `Error: ${body.error ?? res.status}`;
+				return;
+			}
+			const body = (await res.json()) as { cleared: number; total: number; dev?: boolean };
+			cacheMsg = body.dev
+				? 'No edge cache in dev.'
+				: `Cleared ${body.cleared}/${body.total} URLs.`;
+		} finally {
+			cacheClearing = false;
+			setTimeout(() => (cacheMsg = ''), 4000);
+		}
+	}
+
 	// ── Top-level tabs ──────────────────────────────────────
 	type Tab = 'posts' | 'profile' | 'experience' | 'projects' | 'skills' | 'extras' | 'layout';
 	let topTab = $state<Tab>('posts');
@@ -568,18 +592,33 @@
 		</div>
 	{:else}
 		<!-- ── HEADER ─────────────────────────────────────── -->
-		<div class="flex items-baseline justify-between">
+		<div class="flex items-baseline justify-between gap-3">
 			<p
 				class="mono text-[10px] uppercase tracking-[0.18em] sm:tracking-[0.22em]"
 				style="color: var(--ink);"
 			>
 				Admin
 			</p>
-			<button
-				onclick={logout}
-				class="mono text-[10px] uppercase tracking-[0.12em] transition-opacity hover:opacity-50 sm:tracking-[0.15em]"
-				style="color: var(--ink-faint);">sign out</button
-			>
+			<div class="mono flex items-center gap-3 text-[10px] uppercase tracking-[0.12em] sm:gap-4 sm:tracking-[0.15em]">
+				{#if cacheMsg}
+					<span style="color: {cacheMsg.startsWith('Error') ? '#ef4444' : 'var(--accent)'};"
+						>{cacheMsg}</span
+					>
+				{/if}
+				<button
+					onclick={clearCache}
+					disabled={cacheClearing}
+					class="transition-opacity hover:opacity-50 disabled:opacity-40"
+					style="color: var(--ink-muted);"
+					title="Purge edge cache for /, /writing, /rss.xml and post pages">
+					{cacheClearing ? 'clearing…' : 'clear cache'}
+				</button>
+				<button
+					onclick={logout}
+					class="transition-opacity hover:opacity-50"
+					style="color: var(--ink-faint);">sign out</button
+				>
+			</div>
 		</div>
 
 		<!-- ── TAB BAR ────────────────────────────────────── -->
