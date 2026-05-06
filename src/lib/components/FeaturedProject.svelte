@@ -51,13 +51,13 @@
 	<!-- Image -->
 	{#if project.image}
 		<div
-			class="mt-6 overflow-hidden rounded-sm border"
+			class="mt-6 max-w-2xl overflow-hidden rounded-sm border"
 			style="border-color: var(--border);"
 		>
 			<img
 				src={project.image}
 				alt="{project.name} screenshot"
-				class="aspect-video w-full max-w-2xl object-cover"
+				class="block aspect-video w-full object-cover"
 				loading="lazy"
 			/>
 		</div>
