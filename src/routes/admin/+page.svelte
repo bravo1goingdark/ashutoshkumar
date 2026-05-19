@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { marked } from 'marked';
-	import { untrack } from 'svelte';
+	import { untrack, onMount, onDestroy } from 'svelte';
 	import ArrayEditor from '$lib/components/admin/ArrayEditor.svelte';
 	import SectionPanel from '$lib/components/admin/SectionPanel.svelte';
 	import ImageField from '$lib/components/admin/ImageField.svelte';
@@ -44,6 +44,62 @@
 	let { data } = $props();
 
 	const existingSeries = $derived((data.series as string[]) ?? []);
+
+	// ── Unsaved changes warning ──────────────────────────────
+	let hasUnsavedChanges = $state(false);
+
+	function handleBeforeUnload(e: BeforeUnloadEvent) {
+		if (hasUnsavedChanges) {
+			e.preventDefault();
+			e.returnValue = '';
+		}
+	}
+
+	// ── Keyboard shortcuts ──────────────────────────────────
+	function handleKeyboard(e: KeyboardEvent) {
+		// Ctrl/Cmd + S to save
+		if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+			e.preventDefault();
+			if (view === 'edit' && editingSlug !== null) {
+				savePost();
+			} else if (projectView === 'edit') {
+				saveProject();
+			}
+		}
+		// Escape to go back
+		if (e.key === 'Escape') {
+			if (view === 'edit') {
+				view = 'list';
+			} else if (projectView === 'edit') {
+				projectView = 'list';
+			}
+		}
+	}
+
+	onMount(() => {
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		window.addEventListener('keydown', handleKeyboard);
+	});
+
+	onDestroy(() => {
+		window.removeEventListener('beforeunload', handleBeforeUnload);
+		window.removeEventListener('keydown', handleKeyboard);
+	});
+
+	// ── Fetch helper with error handling ─────────────────────
+	async function safeFetch(url: string, options: RequestInit = {}): Promise<Response | null> {
+		try {
+			const res = await fetch(url, options);
+			if (!res.ok) {
+				const body = (await res.json().catch(() => ({}))) as { error?: string };
+				return null;
+			}
+			return res;
+		} catch (err) {
+			console.error(`Fetch error for ${url}:`, err);
+			return null;
+		}
+	}
 
 	// ── Auth gate ────────────────────────────────────────────
 	let keyInput = $state('');
@@ -196,7 +252,10 @@
 
 	function openEdit(post: PostListItem) {
 		fetch(`/api/admin/posts/${post.slug}`)
-			.then((r) => r.json() as Promise<FullPost>)
+			.then((r) => {
+				if (!r.ok) throw new Error('Failed to load post');
+				return r.json() as Promise<FullPost>;
+			})
 			.then((p) => {
 				editingSlug = p.slug;
 				slugCustomized = true;
@@ -218,6 +277,9 @@
 				saveMsg = '';
 				deleteConfirm = false;
 				view = 'edit';
+			})
+			.catch((err) => {
+				saveMsg = `Error: ${err.message}`;
 			});
 	}
 
@@ -256,10 +318,14 @@
 			const result = (await res.json()) as ApiSlugResponse;
 			saveMsg = published ? 'Published.' : 'Saved as draft.';
 			editingSlug = result.slug ?? slugField.trim();
-			const refreshed = await fetch('/api/admin/posts')
-				.then((r) => r.json() as Promise<PostListItem[]>)
-				.catch(() => posts);
+			const refreshedRes = await fetch('/api/admin/posts');
+			const refreshed = refreshedRes.ok 
+				? ((await refreshedRes.json()) as PostListItem[])
+				: posts;
 			posts = refreshed;
+			hasUnsavedChanges = false;
+		} catch (err) {
+			saveMsg = `Error: ${err instanceof Error ? err.message : 'Failed to save'}`;
 		} finally {
 			saving = false;
 		}
@@ -331,7 +397,12 @@
 	}
 
 	let previewHtml = $derived(
-		writeTab === 'preview' ? String(marked.parse(content || '_nothing yet_')) : ''
+		writeTab === 'preview'
+			? String(marked.parse(content || '_nothing yet_', {
+					breaks: true,
+					gfm: true
+				}))
+			: ''
 	);
 
 	// ── Site config local state (snapshot of server data on mount) ──────
@@ -391,6 +462,9 @@
 				return;
 			}
 			savedMsg = { ...savedMsg, [key]: 'Saved.' };
+			hasUnsavedChanges = false;
+		} catch (err) {
+			savedMsg = { ...savedMsg, [key]: `Error: ${err instanceof Error ? err.message : 'Failed to save'}` };
 		} finally {
 			savingSection = { ...savingSection, [key]: false };
 		}
@@ -404,6 +478,7 @@
 	let projectSaving = $state(false);
 	let projectSaveMsg = $state('');
 	let projectDeleteConfirmSlug = $state<string | null>(null);
+	let projectSlugCustomized = $state(false);
 
 	function blankProject(): Project {
 		return {
@@ -425,9 +500,21 @@
 		};
 	}
 
+	$effect(() => {
+		if (!projectSlugCustomized && projectDraft.name) {
+			projectDraft.slug = projectDraft.name
+				.toLowerCase()
+				.replace(/[^a-z0-9\s-]/g, '')
+				.replace(/\s+/g, '-')
+				.replace(/-+/g, '-')
+				.trim();
+		}
+	});
+
 	function openNewProject() {
 		projectDraft = blankProject();
 		editingProjectOriginalSlug = null;
+		projectSlugCustomized = false;
 		projectSaveMsg = '';
 		projectView = 'edit';
 	}
@@ -437,6 +524,7 @@
 		// object — structuredClone errors on the proxy with DataCloneError.
 		projectDraft = $state.snapshot(p) as Project;
 		editingProjectOriginalSlug = p.slug;
+		projectSlugCustomized = true;
 		projectSaveMsg = '';
 		projectView = 'edit';
 	}
@@ -464,9 +552,15 @@
 				return;
 			}
 			projectSaveMsg = 'Saved.';
-			const refreshed = (await fetch('/api/admin/projects').then((r) => r.json())) as Project[];
+			const refreshedRes = await fetch('/api/admin/projects');
+			const refreshed = refreshedRes.ok 
+				? ((await refreshedRes.json()) as Project[])
+				: projectsEdit;
 			projectsEdit = refreshed;
 			editingProjectOriginalSlug = projectDraft.slug;
+			hasUnsavedChanges = false;
+		} catch (err) {
+			projectSaveMsg = `Error: ${err instanceof Error ? err.message : 'Failed to save'}`;
 		} finally {
 			projectSaving = false;
 		}
@@ -618,12 +712,19 @@
 	{:else}
 		<!-- ── HEADER ─────────────────────────────────────── -->
 		<div class="flex items-baseline justify-between gap-3">
-			<p
-				class="mono text-[10px] uppercase tracking-[0.18em] sm:tracking-[0.22em]"
-				style="color: var(--ink);"
-			>
-				Admin
-			</p>
+			<div class="flex items-center gap-3">
+				<p
+					class="mono text-[10px] uppercase tracking-[0.18em] sm:tracking-[0.22em]"
+					style="color: var(--ink);"
+				>
+					Admin
+				</p>
+				{#if hasUnsavedChanges}
+					<span class="mono text-[10px] uppercase tracking-[0.12em]" style="color: #f59e0b;">
+						● Unsaved changes
+					</span>
+				{/if}
+			</div>
 			<div class="mono flex items-center gap-3 text-[10px] uppercase tracking-[0.12em] sm:gap-4 sm:tracking-[0.15em]">
 				{#if cacheMsg}
 					<span style="color: {cacheMsg.startsWith('Error') ? '#ef4444' : 'var(--accent)'};"
@@ -945,6 +1046,30 @@
 							{published ? 'published' : 'draft'}
 						</button>
 						<div class="flex items-center gap-3">
+							{#if editingSlug && !published}
+								<button
+									onclick={() => {
+										const previewWindow = window.open('', '_blank');
+										if (previewWindow) {
+											previewWindow.document.write(`
+												<!DOCTYPE html>
+												<html>
+												<head><title>Draft Preview</title></head>
+												<body style="font-family: system-ui; max-width: 800px; margin: 40px auto; padding: 20px;">
+													<h1>${title}</h1>
+													${previewHtml}
+												</body>
+												</html>
+											`);
+											previewWindow.document.close();
+										}
+									}}
+									class="mono text-[11px] uppercase tracking-[0.12em] transition-opacity hover:opacity-70 sm:tracking-[0.15em]"
+									style="color: var(--ink-muted);"
+								>
+									preview draft ↗
+								</button>
+							{/if}
 							{#if editingSlug}
 								{#if deleteConfirm}
 									<button
@@ -1538,18 +1663,19 @@
 								style="background: var(--bg); color: var(--ink); border-color: var(--border-strong);"
 							/>
 						</label>
-						<label class="block">
-							<span
-								class="mono mb-1.5 block text-[10px] uppercase tracking-[0.15em]"
-								style="color: var(--ink-muted);">Slug</span
-							>
-							<input
-								type="text"
-								bind:value={projectDraft.slug}
-								class="mono w-full border px-3 py-2 text-[12px] outline-none"
-								style="background: var(--bg); color: var(--ink); border-color: var(--border-strong);"
-							/>
-						</label>
+					<label class="block">
+						<span
+							class="mono mb-1.5 block text-[10px] uppercase tracking-[0.15em]"
+							style="color: var(--ink-muted);">Slug</span
+						>
+						<input
+							type="text"
+							bind:value={projectDraft.slug}
+							oninput={() => (projectSlugCustomized = true)}
+							class="mono w-full border px-3 py-2 text-[12px] outline-none"
+							style="background: var(--bg); color: var(--ink); border-color: var(--border-strong);"
+						/>
+					</label>
 						<label class="block">
 							<span
 								class="mono mb-1.5 block text-[10px] uppercase tracking-[0.15em]"
