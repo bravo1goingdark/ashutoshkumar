@@ -42,6 +42,6 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
 		throw error(400, 'slug, title and date are required');
 	}
 
-	await upsertPost(platform.env.DB, body);
-	return json({ ok: true });
+	const slug = await upsertPost(platform.env.DB, body);
+	return json({ ok: true, slug });
 };

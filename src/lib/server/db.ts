@@ -388,7 +388,7 @@ export async function seedProjectsIfMissing(
 				p.sortOrder ?? 0
 			)
 			.run();
-		if (result.meta?.changes ?? 0 > 0) inserted++;
+		if ((result.meta?.changes ?? 0) > 0) inserted++;
 		else skipped++;
 	}
 	return { inserted, skipped };
