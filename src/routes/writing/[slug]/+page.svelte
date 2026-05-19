@@ -1,4 +1,6 @@
 <script lang="ts">
+	import ReadingProgress from '$lib/components/ReadingProgress.svelte';
+	
 	let { data } = $props();
 	let post = $derived(data.post);
 	let contentHtml = $derived(data.contentHtml);
@@ -18,6 +20,8 @@
 	const prevPost = $derived(currentIndex > 0 ? seriesPosts[currentIndex - 1] : null);
 	const nextPost = $derived(currentIndex >= 0 && currentIndex < seriesPosts.length - 1 ? seriesPosts[currentIndex + 1] : null);
 </script>
+
+<ReadingProgress />
 
 <svelte:head>
 	<title>{post.title} — Ashutosh Kumar</title>

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import StatsBand from './StatsBand.svelte';
 	import type { Profile, Stat } from '$lib/types';
+	import { typing } from '$lib/actions/typing';
+	import { magnetic } from '$lib/actions/magnetic';
 
 	let { profile, stats }: { profile: Profile; stats: Stat[] } = $props();
 
@@ -10,6 +12,7 @@
 	const resumeHref = $derived(profile.resumeUrl || FALLBACK_RESUME);
 
 	const nameParts = $derived(profile.name.split(' '));
+	const taglineText = $derived(`${profile.role} · ${profile.tagline}`);
 </script>
 
 <section class="relative overflow-hidden" id="top">
@@ -50,13 +53,12 @@
 			/>
 		</div>
 
-		<!-- Role line -->
+		<!-- Role line with typing animation -->
 		<p
 			class="mono animate-in animate-in-d1 mt-6 text-[11px] uppercase tracking-[0.12em] sm:text-[13px] sm:tracking-[0.2em]"
-			style="color: var(--ink-muted);"
-		>
-			{profile.role} · {profile.tagline}
-		</p>
+			style="color: var(--ink-muted); min-height: 1.5em;"
+			use:typing={{ text: taglineText, speed: 40, startDelay: 800, cursorChar: '|', cursorBlink: true }}
+		></p>
 
 		<!-- Primary pitch -->
 		<p
@@ -74,13 +76,13 @@
 			{profile.education}
 		</p>
 
-		<!-- Primary CTAs -->
+		<!-- Primary CTAs with magnetic effect -->
 		<div class="animate-in animate-in-d3 mt-8 flex flex-wrap items-center gap-3 sm:mt-10">
-			<a href={resumeHref} download class="btn btn-primary">
+			<a href={resumeHref} download class="btn btn-primary" use:magnetic={{ intensity: 0.25, distance: 60 }}>
 				<span aria-hidden="true">↓</span>
 				Download résumé
 			</a>
-			<a href="#hiring" class="btn btn-secondary">
+			<a href="#hiring" class="btn btn-secondary" use:magnetic={{ intensity: 0.25, distance: 60 }}>
 				Get in touch
 				<span aria-hidden="true">→</span>
 			</a>

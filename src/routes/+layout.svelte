@@ -2,6 +2,9 @@
 	import '../app.css';
 	import Nav from '$lib/components/Nav.svelte';
 	import Footer from '$lib/components/Footer.svelte';
+	import CustomCursor from '$lib/components/CustomCursor.svelte';
+	import AnimatedBackground from '$lib/components/AnimatedBackground.svelte';
+	import PageTransition from '$lib/components/PageTransition.svelte';
 
 	let { data, children } = $props();
 
@@ -47,6 +50,10 @@
 		})
 	);
 </script>
+
+<CustomCursor />
+<AnimatedBackground />
+<PageTransition />
 
 <svelte:head>
 	<title>{title}</title>

@@ -6,6 +6,7 @@
 	import ExperienceBlock from '$lib/components/ExperienceBlock.svelte';
 	import SkillGrid from '$lib/components/SkillGrid.svelte';
 	import { animateOnScroll } from '$lib/actions/animateOnScroll';
+	import { parallax } from '$lib/actions/parallax';
 
 	let { data } = $props();
 
@@ -49,10 +50,14 @@
 <section
 	id={sections.work.id}
 	class="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-28"
-	use:animateOnScroll
+	use:animateOnScroll={{ delay: 100, stagger: true, staggerDelay: 100 }}
+	use:parallax={{ speed: 0.1, direction: 'up' }}
 >
 	<SectionHeader label={sections.work.label} />
-	<div>
+	<div class="relative">
+		<!-- Gradient accent line -->
+		<div class="absolute -left-5 top-0 h-full w-0.5 bg-gradient-to-b from-[var(--accent)] via-[var(--accent)] to-transparent opacity-20"></div>
+		
 		{#each featuredProjects as project, i (project.slug)}
 			<FeaturedProject {project} index={String(i + 1).padStart(2, '0')} />
 		{/each}
@@ -100,10 +105,15 @@
 <section
 	id={sections.experience.id}
 	class="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-28"
-	use:animateOnScroll={{ delay: 100 }}
+	use:animateOnScroll={{ delay: 100, stagger: true, staggerDelay: 80 }}
+	use:parallax={{ speed: 0.15, direction: 'up' }}
 >
 	<SectionHeader label={sections.experience.label} />
-	<ExperienceBlock experience={site.experience} education={site.education} />
+	<div class="relative">
+		<!-- Gradient accent line -->
+		<div class="absolute -left-5 top-0 h-full w-0.5 bg-gradient-to-b from-[var(--accent)] via-[var(--accent)] to-transparent opacity-20"></div>
+		<ExperienceBlock experience={site.experience} education={site.education} />
+	</div>
 </section>
 {/if}
 
@@ -112,10 +122,15 @@
 <section
 	id={sections.stack.id}
 	class="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-28"
-	use:animateOnScroll={{ delay: 100 }}
+	use:animateOnScroll={{ delay: 100, stagger: true, staggerDelay: 60 }}
+	use:parallax={{ speed: 0.12, direction: 'up' }}
 >
 	<SectionHeader label={sections.stack.label} />
-	<SkillGrid skillTiers={site.skillTiers} achievements={site.achievements} />
+	<div class="relative">
+		<!-- Gradient accent line -->
+		<div class="absolute -left-5 top-0 h-full w-0.5 bg-gradient-to-b from-[var(--accent)] via-[var(--accent)] to-transparent opacity-20"></div>
+		<SkillGrid skillTiers={site.skillTiers} achievements={site.achievements} />
+	</div>
 </section>
 {/if}
 
@@ -124,7 +139,8 @@
 <section
 	id={sections.howIBuild.id}
 	class="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-28"
-	use:animateOnScroll={{ delay: 100 }}
+	use:animateOnScroll={{ delay: 100, stagger: true, staggerDelay: 100 }}
+	use:parallax={{ speed: 0.08, direction: 'up' }}
 >
 	<SectionHeader label={sections.howIBuild.label} />
 
@@ -137,7 +153,7 @@
 
 	<div class="mt-8 space-y-5 sm:mt-10">
 		{#each site.howIBuild.principles as principle}
-			<div class="border-t pt-5" style="border-color: var(--border);">
+			<div class="border-t pt-5 transition-all duration-300 hover:translate-x-1" style="border-color: var(--border);">
 				<span
 					class="mono text-[10px] uppercase tracking-[0.18em] sm:tracking-[0.22em]"
 					style="color: var(--ink);"
@@ -161,7 +177,8 @@
 <section
 	id={sections.ai.id}
 	class="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-28"
-	use:animateOnScroll={{ delay: 100 }}
+	use:animateOnScroll={{ delay: 100, stagger: true, staggerDelay: 80 }}
+	use:parallax={{ speed: 0.1, direction: 'up' }}
 >
 	<SectionHeader label={sections.ai.label} />
 
@@ -195,7 +212,7 @@
 						href={p.github}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="row-hover group block border-t -mx-4 px-4 py-5 hover:no-underline"
+						class="row-hover group block border-t -mx-4 px-4 py-5 hover:no-underline transition-all duration-300 hover:translate-x-2"
 						style="border-color: var(--border);"
 					>
 						<div class="flex items-baseline justify-between gap-3 sm:gap-4">
@@ -243,14 +260,18 @@
 	<section
 		id={sections.writing.id}
 		class="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-28"
-		use:animateOnScroll={{ delay: 100 }}
+		use:animateOnScroll={{ delay: 100, stagger: true, staggerDelay: 80 }}
+		use:parallax={{ speed: 0.1, direction: 'up' }}
 	>
 		<SectionHeader label={sections.writing.label} />
-		<div>
+		<div class="relative">
+			<!-- Gradient accent line -->
+			<div class="absolute -left-5 top-0 h-full w-0.5 bg-gradient-to-b from-[var(--accent)] via-[var(--accent)] to-transparent opacity-20"></div>
+			
 			{#each data.recentPosts as post}
 				<a
 					href="/writing/{post.slug}"
-					class="row-hover group flex items-baseline justify-between gap-3 border-t -mx-3 px-3 py-5 hover:no-underline sm:-mx-4 sm:gap-4 sm:px-4"
+					class="row-hover group flex items-baseline justify-between gap-3 border-t -mx-3 px-3 py-5 hover:no-underline sm:-mx-4 sm:gap-4 sm:px-4 transition-all duration-300 hover:translate-x-2"
 					style="border-color: var(--border);"
 				>
 					<span
@@ -290,7 +311,8 @@
 <section
 	id={sections.hiring.id}
 	class="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-28"
-	use:animateOnScroll={{ delay: 100 }}
+	use:animateOnScroll={{ delay: 100, stagger: true, staggerDelay: 80 }}
+	use:parallax={{ speed: 0.12, direction: 'up' }}
 >
 	<SectionHeader label={sections.hiring.label} />
 
@@ -313,7 +335,7 @@
 			<ul class="mt-4 space-y-2">
 				{#each site.hiring.roles as role}
 					<li
-						class="flex gap-3 text-[14px] leading-[1.65] sm:text-[15px]"
+						class="flex gap-3 text-[14px] leading-[1.65] sm:text-[15px] transition-all duration-300 hover:translate-x-1"
 						style="color: var(--ink-muted);"
 					>
 						<span style="color: var(--ink-faint);" aria-hidden="true">—</span>
@@ -333,7 +355,7 @@
 			<ul class="mt-4 space-y-2">
 				{#each site.hiring.domains as domain}
 					<li
-						class="flex gap-3 text-[14px] leading-[1.65] sm:text-[15px]"
+						class="flex gap-3 text-[14px] leading-[1.65] sm:text-[15px] transition-all duration-300 hover:translate-x-1"
 						style="color: var(--ink-muted);"
 					>
 						<span style="color: var(--ink-faint);" aria-hidden="true">—</span>
@@ -355,7 +377,7 @@
 		<div class="mt-4 flex flex-wrap gap-2">
 			{#each site.hiring.openTo as mode}
 				<span
-					class="mono border px-2 py-1 text-[9px] uppercase tracking-[0.1em] sm:px-3 sm:py-1.5 sm:text-[10px] sm:tracking-[0.12em]"
+					class="mono border px-2 py-1 text-[9px] uppercase tracking-[0.1em] sm:px-3 sm:py-1.5 sm:text-[10px] sm:tracking-[0.12em] transition-all duration-300 hover:border-[var(--accent)] hover:text-[var(--accent)]"
 					style="border-color: var(--border-strong); color: var(--ink);"
 				>
 					{mode}
